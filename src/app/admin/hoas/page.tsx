@@ -97,7 +97,7 @@ function HOAFormModal({
     setError("");
     setSaving(true);
     try {
-      await onSave(form);
+      await onSave(form as any);
       onClose();
     } catch (err: any) {
       setError(err.message ?? "Something went wrong.");
