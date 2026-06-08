@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
   const logEntry = {
     timestamp: new Date().toISOString(),
-    userId: session.user?.id,
+    userId: (session.user as any)?.id,
     userEmail: session.user?.email,
     action,
     documentId,
