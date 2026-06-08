@@ -64,7 +64,7 @@ export default function Dashboard() {
   const handleTabChange = useCallback(
     (id: string) => {
       setActiveTab(id);
-      logEvent("SEARCH", undefined, undefined, { tab: id });
+      logEvent("SEARCH", { metadata: { tab: id } });
     },
     [logEvent],
   );
