@@ -12,6 +12,12 @@ async function logAuditEvent(action: string, docId: string, role: string) {
   );
 }
 
+async function getServerSessionRole(): Promise<UserRole> {
+  const headerList = await headers();
+  const demoRoleHeader = headerList.get("x-demo-role") as UserRole;
+  return demoRoleHeader || "public";
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
