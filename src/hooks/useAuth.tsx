@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, type ReactNode } from "react";
-import { useSession } from "next-auth/react";
+import { SessionProvider, useSession } from "next-auth/react";
 import type { AuthUser, HOABranding, UserRole } from "@/types";
 
 interface AuthContextValue {
@@ -13,7 +13,6 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Fallback for unauthenticated / loading state
 const GUEST_USER: AuthUser = {
   id: "anonymous",
   email: "anonymous",
@@ -22,7 +21,8 @@ const GUEST_USER: AuthUser = {
   hoaId: null,
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+// Inner consumer — must be inside SessionProvider
+function AuthContextProvider({ children }: { children: ReactNode }) {
   const { data: session, status } = useSession();
   const isLoading = status === "loading";
 
@@ -39,12 +39,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     : GUEST_USER;
 
   const hoa: HOABranding | null = sessionUser?.hoa ?? null;
-  const role = user.role;
 
   return (
-    <AuthContext.Provider value={{ user, role, hoa, isLoading }}>
+    <AuthContext.Provider value={{ user, role: user.role, hoa, isLoading }}>
       {children}
     </AuthContext.Provider>
+  );
+}
+
+// Outer wrapper — provides both SessionProvider and AuthContext
+export function AuthProvider({ children }: { children: ReactNode }) {
+  return (
+    <SessionProvider>
+      <AuthContextProvider>{children}</AuthContextProvider>
+    </SessionProvider>
   );
 }
 

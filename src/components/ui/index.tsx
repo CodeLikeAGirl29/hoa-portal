@@ -3,14 +3,34 @@ import type { UserRole, DocumentCategory, ChecklistPriority } from "@/types";
 import { CATEGORY_META } from "@/lib/redaction";
 
 // ─── Role Badge ────────────────────────────────────────────────────────────
-const ROLE_STYLES: Record<UserRole, { bg: string; color: string; label: string }> = {
-  public:   { bg: "#F1EFE8", color: "#5F5E5A", label: "Public View" },
+const ROLE_STYLES: Record<
+  UserRole,
+  { bg: string; color: string; label: string }
+> = {
+  public: { bg: "#F1EFE8", color: "#5F5E5A", label: "Public View" },
   resident: { bg: "#E6F1FB", color: "#185FA5", label: "Resident" },
-  admin:    { bg: "#EAF3DE", color: "#3B6D11", label: "Administrator" },
+  admin: { bg: "#EAF3DE", color: "#3B6D11", label: "Administrator" },
 };
 
-export function RoleBadge({ role }: { role: UserRole }) {
-  const s = ROLE_STYLES[role];
+export function RoleBadge({
+  role,
+  accentColor,
+}: {
+  role: UserRole;
+  accentColor?: string;
+}) {
+  const accent = accentColor ?? "#185FA5";
+
+  const styles: Record<UserRole, { bg: string; color: string; label: string }> =
+    {
+      public: { bg: "#F1EFE8", color: "#5F5E5A", label: "Public View" },
+      resident: { bg: `${accent}18`, color: accent, label: "Resident" },
+      admin: { bg: "#EAF3DE", color: "#3B6D11", label: "Administrator" },
+      superadmin: { bg: "#EEEDFE", color: "#533AB7", label: "Super Admin" },
+    };
+
+  const s = styles[role] ?? styles.public;
+
   return (
     <span
       className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wide"
@@ -43,17 +63,26 @@ export function AccessBadge({
   isResident: boolean;
 }) {
   if (isPublic)
-    return <span className="text-[11px] font-medium text-green-700">🔓 Public</span>;
+    return (
+      <span className="text-[11px] font-medium text-green-700">🔓 Public</span>
+    );
   if (isResident)
-    return <span className="text-[11px] font-medium text-blue-700">🔐 Resident</span>;
-  return <span className="text-[11px] font-medium text-red-700">🔒 Admin Only</span>;
+    return (
+      <span className="text-[11px] font-medium text-blue-700">🔐 Resident</span>
+    );
+  return (
+    <span className="text-[11px] font-medium text-red-700">🔒 Admin Only</span>
+  );
 }
 
 // ─── Priority Badge ────────────────────────────────────────────────────────
-const PRIORITY_STYLES: Record<ChecklistPriority, { bg: string; color: string }> = {
-  high:   { bg: "#FAECE7", color: "#712B13" },
+const PRIORITY_STYLES: Record<
+  ChecklistPriority,
+  { bg: string; color: string }
+> = {
+  high: { bg: "#FAECE7", color: "#712B13" },
   medium: { bg: "#FAEEDA", color: "#854F0B" },
-  low:    { bg: "#EAF3DE", color: "#3B6D11" },
+  low: { bg: "#EAF3DE", color: "#3B6D11" },
 };
 
 export function PriorityBadge({ priority }: { priority: ChecklistPriority }) {
@@ -82,12 +111,15 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const base = "inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50";
+  const base =
+    "inline-flex items-center justify-center font-semibold rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50";
 
   const variants = {
-    primary:   "bg-blue-700 text-white hover:bg-blue-800 active:scale-[0.98]",
-    secondary: "bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-[0.98]",
-    ghost:     "bg-transparent border border-gray-200 text-gray-600 hover:bg-gray-50",
+    primary: "bg-blue-700 text-white hover:bg-blue-800 active:scale-[0.98]",
+    secondary:
+      "bg-gray-100 text-gray-600 hover:bg-gray-200 active:scale-[0.98]",
+    ghost:
+      "bg-transparent border border-gray-200 text-gray-600 hover:bg-gray-50",
   };
 
   const sizes = {
@@ -125,11 +157,14 @@ export function Card({
 // ─── Alert Banner ──────────────────────────────────────────────────────────
 type AlertVariant = "info" | "warning" | "success" | "admin";
 
-const ALERT_STYLES: Record<AlertVariant, { bg: string; border: string; color: string; icon: string }> = {
-  info:    { bg: "#E6F1FB", border: "#B5D4F4", color: "#0C447C", icon: "ℹ️" },
+const ALERT_STYLES: Record<
+  AlertVariant,
+  { bg: string; border: string; color: string; icon: string }
+> = {
+  info: { bg: "#E6F1FB", border: "#B5D4F4", color: "#0C447C", icon: "ℹ️" },
   warning: { bg: "#FAEEDA", border: "#FAC775", color: "#633806", icon: "⚠️" },
   success: { bg: "#EAF3DE", border: "#C0DD97", color: "#27500A", icon: "✓" },
-  admin:   { bg: "#EAF3DE", border: "#C0DD97", color: "#27500A", icon: "🛡️" },
+  admin: { bg: "#EAF3DE", border: "#C0DD97", color: "#27500A", icon: "🛡️" },
 };
 
 export function AlertBanner({
@@ -143,7 +178,11 @@ export function AlertBanner({
   return (
     <div
       className="flex items-start gap-3 rounded-xl px-5 py-4 mb-6 text-sm"
-      style={{ background: s.bg, border: `1px solid ${s.border}`, color: s.color }}
+      style={{
+        background: s.bg,
+        border: `1px solid ${s.border}`,
+        color: s.color,
+      }}
     >
       <span className="text-lg leading-none mt-0.5">{s.icon}</span>
       <div>{children}</div>
@@ -164,7 +203,10 @@ export function StatCard({
   bg: string;
 }) {
   return (
-    <div className="rounded-xl p-4 flex-1 min-w-[80px]" style={{ background: bg }}>
+    <div
+      className="rounded-xl p-4 flex-1 min-w-[80px]"
+      style={{ background: bg }}
+    >
       <div className="text-2xl font-bold" style={{ color }}>
         {value}
       </div>

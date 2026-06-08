@@ -6,9 +6,9 @@ import { AuthProvider } from "@/hooks/useAuth";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Pelican Bay HOA | Document Portal",
+  title: "Florida HOA Portal",
   description:
-    "Florida Statute 720.303 compliant HOA document management portal for Pelican Bay Homeowners Association.",
+    "Florida Statute 720.303 compliant HOA document management portal serving communities statewide.",
 };
 
 export default function RootLayout({
