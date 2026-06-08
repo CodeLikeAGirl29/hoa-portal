@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased selection:bg-hoa-blue/10;
+    /* Subtle geometric grid backdrop popular in high-end dev dashboards */
+    background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
+
+/* Crisp focus indicator for accessibility compliance */
+:focus-visible {
+  outline: 2px solid #185FA5;
+  outline-offset: 2px;
+}
+
+/* Ultra-clean modern scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+}
