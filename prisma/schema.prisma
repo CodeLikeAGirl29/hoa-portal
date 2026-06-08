@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model HOA {
+  id        String     @id @default(uuid())
+  name      String
+  users     User[]
+  documents Document[]
+  logs      AuditLog[]
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  hoaId     String
+  hoa       HOA      @relation(fields: [hoaId], references: [id])
+  title     String
+  content   String
+  category  String
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  hoaId     String
+  hoa       HOA      @relation(fields: [hoaId], references: [id])
+  action    String
+  userId    String
+  timestamp DateTime @default(now())
+}

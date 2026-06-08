@@ -28,17 +28,19 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).role = token.role;
-      }
-      return session;
-    },
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
+        token.hoaId = (user as any).hoaId; // Injected from database user record
       }
       return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        (session.user as any).role = token.role;
+        (session.user as any).hoaId = token.hoaId;
+      }
+      return session;
     },
   },
 };
