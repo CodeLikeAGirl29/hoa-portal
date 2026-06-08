@@ -3,7 +3,6 @@
 import { useState, useCallback } from "react";
 import type { HOADocument } from "@/types";
 import { MOCK_DOCUMENTS } from "@/lib/data";
-import { canAccess } from "@/lib/redaction";
 import { useAuth } from "@/hooks/useAuth";
 import { useAuditLog } from "@/hooks/useAuditLog";
 
@@ -89,9 +88,7 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col bg-slate-50/50 justify-between">
       <Header />
 
-      {/* Main Container with refined margins and max-width layout */}
       <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col">
-        {/* Role contextual banners */}
         {role === "public" && (
           <AlertBanner variant="info">
             <strong>Public Access Mode</strong> — You are viewing publicly
@@ -107,14 +104,12 @@ export default function Dashboard() {
           </AlertBanner>
         )}
 
-        {/* High-density metrics row */}
         {role !== "public" && (
           <div className="mb-4">
             <StatsBar />
           </div>
         )}
 
-        {/* Workspace Card Container: Hooks tabs and panels into a single component surface */}
         <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200">
           <div className="bg-slate-50/45 border-b border-slate-100 px-5 pt-4">
             <Tabs
@@ -137,7 +132,6 @@ export default function Dashboard() {
 
       <ComplianceFooter />
 
-      {/* Presentation Components */}
       {viewingDoc && (
         <DocumentViewer
           document={viewingDoc}
