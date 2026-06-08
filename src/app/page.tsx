@@ -1,72 +1,53 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import type { HOADocument } from "@/types";
-import { MOCK_DOCUMENTS } from "@/lib/data";
 import { useAuth } from "@/hooks/useAuth";
-import { useAuditLog } from "@/hooks/useAuditLog";
-
+import AdminDashboard from "@/components/dashboard/AdminDashboard";
 import { Header } from "@/components/layout/Header";
 import { ComplianceFooter } from "@/components/layout/ComplianceFooter";
-import { StatsBar } from "@/components/layout/StatsBar";
-import { Tabs } from "@/components/ui/Tabs";
-import { AlertBanner } from "@/components/ui";
-import { DownloadToast } from "@/components/ui/DownloadToast";
 import { DocumentVault } from "@/components/vault/DocumentVault";
+import { useState, useCallback } from "react";
+import type { HOADocument } from "@/types";
 import { DocumentViewer } from "@/components/vault/DocumentViewer";
-import { AuditTrailPanel } from "@/components/admin/AuditTrailPanel";
-import { AccessMatrixTable } from "@/components/admin/AccessMatrixTable";
-import { ImplementationChecklist } from "@/components/admin/ImplementationChecklist";
+import { DownloadToast } from "@/components/ui/DownloadToast";
+import { useAuditLog } from "@/hooks/useAuditLog";
+import { AlertBanner } from "@/components/ui";
+import { StatsBar } from "@/components/layout/StatsBar";
 
-function useTabsForRole(role: string) {
-  const docCount = MOCK_DOCUMENTS.filter((d) => {
-    if (role === "admin") return true;
-    if (role === "resident") return d.isAccessibleToResidents;
-    return d.isPublic;
-  }).length;
+export default function HomePage() {
+  const { role, isLoading } = useAuth();
 
-  if (role === "public") {
-    return [
-      { id: "vault", label: "Public Documents", icon: "📁", count: docCount },
-      { id: "matrix", label: "Access Matrix", icon: "🛡️" },
-    ];
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-gray-300 text-center">
+          <div className="text-4xl mb-3 animate-pulse">⚓</div>
+          <div className="text-sm">Loading your portal…</div>
+        </div>
+      </div>
+    );
   }
 
-  const base = [
-    { id: "vault", label: "Document Vault", icon: "📁", count: docCount },
-    { id: "matrix", label: "Access Matrix", icon: "🛡️" },
-  ];
-
-  if (role === "admin") {
-    return [
-      ...base,
-      { id: "audit", label: "System Audit", icon: "🗃️" },
-      { id: "checklist", label: "Compliance Board", icon: "📋" },
-    ];
+  // Admins and superadmins get the dashboard
+  if (role === "admin" || role === "superadmin") {
+    return (
+      <>
+        <Header />
+        <AdminDashboard />
+        <ComplianceFooter />
+      </>
+    );
   }
-  return base;
+
+  // Residents and public get the document vault
+  return <DocumentPortal />;
 }
 
-export default function Dashboard() {
+function DocumentPortal() {
   const { role } = useAuth();
   const { log: logEvent } = useAuditLog();
-  const tabs = useTabsForRole(role);
 
-  const [activeTab, setActiveTab] = useState("vault");
   const [viewingDoc, setViewingDoc] = useState<HOADocument | null>(null);
   const [downloadToast, setDownloadToast] = useState<HOADocument | null>(null);
-
-  const effectiveTab = tabs.some((t) => t.id === activeTab)
-    ? activeTab
-    : "vault";
-
-  const handleTabChange = useCallback(
-    (id: string) => {
-      setActiveTab(id);
-      logEvent("SEARCH", { metadata: { tab: id } });
-    },
-    [logEvent],
-  );
 
   const handleView = useCallback(
     (doc: HOADocument) => {
@@ -85,51 +66,26 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50/50 justify-between">
+    <div className="min-h-screen flex flex-col bg-slate-50/50">
       <Header />
-
       <main className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col">
         {role === "public" && (
           <AlertBanner variant="info">
             <strong>Public Access Mode</strong> — You are viewing publicly
-            authorized records. Sign in with resident credentials to access
-            financial records and meeting logs.
+            authorized records.{" "}
+            <a href="/login" className="underline">
+              Sign in
+            </a>{" "}
+            to access financial records and meeting minutes.
           </AlertBanner>
         )}
-        {role === "admin" && (
-          <AlertBanner variant="admin">
-            <strong>Administrative Workspace</strong> — Full, unredacted
-            database visibility. All view and download interactions are locked
-            securely into the immutable audit sequence.
-          </AlertBanner>
-        )}
-
-        {role !== "public" && (
-          <div className="mb-4">
-            <StatsBar />
-          </div>
-        )}
-
-        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-200">
-          <div className="bg-slate-50/45 border-b border-slate-100 px-5 pt-4">
-            <Tabs
-              tabs={tabs}
-              active={effectiveTab}
-              onChange={handleTabChange}
-            />
-          </div>
-
-          <div className="p-5 flex-1 min-h-[480px]">
-            {effectiveTab === "vault" && (
-              <DocumentVault onView={handleView} onDownload={handleDownload} />
-            )}
-            {effectiveTab === "matrix" && <AccessMatrixTable />}
-            {effectiveTab === "audit" && <AuditTrailPanel />}
-            {effectiveTab === "checklist" && <ImplementationChecklist />}
+        {role === "resident" && <StatsBar />}
+        <div className="bg-white rounded-xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="p-5 min-h-[480px]">
+            <DocumentVault onView={handleView} onDownload={handleDownload} />
           </div>
         </div>
       </main>
-
       <ComplianceFooter />
 
       {viewingDoc && (
@@ -138,7 +94,6 @@ export default function Dashboard() {
           onClose={() => setViewingDoc(null)}
         />
       )}
-
       {downloadToast && (
         <DownloadToast
           document={downloadToast}

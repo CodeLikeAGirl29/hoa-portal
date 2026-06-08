@@ -17,6 +17,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "crypto": "^1.0.1",
     "dotenv": "^17.4.2",
     "next": "^16.2.7",

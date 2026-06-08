@@ -18,6 +18,7 @@ export function Header() {
     : "Serving Florida statewide";
 
   const isGuest = role === "public" || user.id === "anonymous";
+  const isAdmin = role === "admin";
   const isSuperAdmin = role === "superadmin";
 
   return (
@@ -59,20 +60,22 @@ export function Header() {
         </Link>
 
         {/* ── Nav + User ───────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3">
-          {/* Superadmin nav */}
-          {isSuperAdmin && (
-            <Link
-              href="/admin/hoas"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 no-underline"
-              style={{
-                background: accentLight,
-                color: accent,
-                border: `1px solid ${accent}30`,
-              }}
-            >
-              🏘️ Manage HOAs
-            </Link>
+        <div className="flex items-center gap-2">
+          {/* HOA admin nav */}
+          {(isAdmin || isSuperAdmin) && (
+            <nav className="flex items-center gap-1 mr-2">
+              <NavLink href="/admin/users" accent={accent}>
+                👥 Members
+              </NavLink>
+              <NavLink href="/admin/settings" accent={accent}>
+                ⚙️ HOA Settings
+              </NavLink>
+              {isSuperAdmin && (
+                <NavLink href="/admin/hoas" accent={accent}>
+                  🏘️ Communities
+                </NavLink>
+              )}
+            </nav>
           )}
 
           {isGuest ? (
@@ -89,8 +92,8 @@ export function Header() {
             </Link>
           ) : (
             <>
-              <div className="text-right hidden sm:block">
-                <div className="text-sm font-medium text-gray-800">
+              <div className="text-right hidden sm:block mr-1">
+                <div className="text-sm font-medium text-gray-800 leading-tight">
                   {user.displayName}
                 </div>
                 <div className="text-xs text-gray-400">{user.email}</div>
@@ -100,7 +103,7 @@ export function Header() {
 
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-all duration-150 border border-gray-200 cursor-pointer bg-white"
+                className="ml-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-all duration-150 border border-gray-200 cursor-pointer bg-white"
               >
                 Sign out
               </button>
@@ -120,6 +123,27 @@ export function Header() {
   );
 }
 
+// ─── Nav link helper ───────────────────────────────────────────────────────
+function NavLink({
+  href,
+  accent,
+  children,
+}: {
+  href: string;
+  accent: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 no-underline text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+    >
+      {children}
+    </Link>
+  );
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────
 function getMonogram(name: string): string {
   return name
     .replace(/\bHOA\b/gi, "")
