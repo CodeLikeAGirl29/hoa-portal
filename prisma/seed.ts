@@ -1,6 +1,6 @@
 // prisma/seed.ts
 // Run with: npx prisma db seed
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client/wasm";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";

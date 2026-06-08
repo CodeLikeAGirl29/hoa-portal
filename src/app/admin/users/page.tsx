@@ -43,7 +43,7 @@ function UserFormModal({
   onSave: (data: typeof EMPTY_FORM) => Promise<void>;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState({ ...EMPTY_FORM, ...(initial ?? {}) });
+  const [form, setForm] = useState<typeof EMPTY_FORM>({ ...EMPTY_FORM, ...(initial ? { ...initial, name: initial.name ?? "" } : {}) });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const isEdit = !!initial?.id;

@@ -217,7 +217,7 @@ export default function HOASettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
-  const savedTimer = useRef<ReturnType<typeof setTimeout>>();
+  const savedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load current HOA settings
   useEffect(() => {

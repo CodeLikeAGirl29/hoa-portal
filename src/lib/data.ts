@@ -2,6 +2,7 @@ import type { HOADocument } from "@/types";
 
 export const MOCK_DOCUMENTS: HOADocument[] = [
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-001",
     title: "Community Bylaws 2024",
     category: "governing",
@@ -18,6 +19,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: true,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-002",
     title: "Declaration of Covenants (CC&Rs)",
     category: "governing",
@@ -34,6 +36,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: true,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-003",
     title: "Q1 2025 Budget Summary",
     category: "financial",
@@ -50,6 +53,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: true,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-004",
     title: "Annual Meeting Minutes — March 2025",
     category: "meetings",
@@ -66,6 +70,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: true,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-005",
     title: "Pool Renovation Contract Bid",
     category: "contracts",
@@ -82,6 +87,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: false,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-006",
     title: "Detailed Expenditure Report FY2024",
     category: "financial",
@@ -98,6 +104,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: false,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-007",
     title: "Legal Correspondence — June 2025",
     category: "legal",
@@ -114,6 +121,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: false,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-008",
     title: "Architectural Review — Lot 23 Fence",
     category: "architectural",
@@ -130,6 +138,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: true,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-009",
     title: "Current Insurance Policy Summary",
     category: "insurance",
@@ -146,6 +155,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     isMandatoryRecord: true,
   },
   {
+    hoaId: "mock-hoa-pelican-bay",
     id: "doc-010",
     title: "Violation Notice — Lot 8 (Redacted)",
     category: "violations",
