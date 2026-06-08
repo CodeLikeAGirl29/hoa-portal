@@ -50,7 +50,7 @@ function useTabsForRole(role: string) {
 
 export default function Dashboard() {
   const { role } = useAuth();
-  const { logEvent } = useAuditLog();
+  const { log: logEvent } = useAuditLog();
   const tabs = useTabsForRole(role);
 
   const [activeTab, setActiveTab] = useState("vault");
