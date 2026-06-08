@@ -1,14 +1,23 @@
+// src/types/next-auth.d.ts
 import NextAuth, { DefaultSession } from "next-auth";
+import type { HOABranding } from "@/types";
 
 declare module "next-auth" {
-  /**
-   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React context
-   */
   interface Session {
     user: {
       id: string;
       role: string;
-      hoaId: string;
+      hoaId: string | null;
+      hoa: HOABranding | null;
     } & DefaultSession["user"];
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+    hoaId: string | null;
+    hoa: HOABranding | null;
   }
 }

@@ -1,11 +1,27 @@
 // ─── Auth ──────────────────────────────────────────────────────────────────
-export type UserRole = "public" | "resident" | "admin";
+export type UserRole = "public" | "resident" | "admin" | "superadmin";
 
 export interface AuthUser {
   id: string;
   email: string;
   role: UserRole;
   displayName: string;
+  hoaId: string | null;
+}
+
+// ─── HOA Branding ──────────────────────────────────────────────────────────
+export interface HOABranding {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  accentColor: string;
+  address: string | null;
+  city: string | null;
+  state: string;
+  zip: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
 // ─── Documents ─────────────────────────────────────────────────────────────
@@ -21,19 +37,18 @@ export type DocumentCategory =
 
 export interface HOADocument {
   id: string;
+  hoaId: string;
   title: string;
   category: DocumentCategory;
   content: string;
-  redactedContent?: string;
   isPublic: boolean;
   isAccessibleToResidents: boolean;
   requiresLogin: boolean;
   uploadDate: string;
   lastModified: string;
-  fileSize: string;
-  pages: number;
-  uploadedBy: string;
-  /** F.S. 720.303 mandatory category flag */
+  fileSize: string | null;
+  pages: number | null;
+  uploadedBy: string | null;
   isMandatoryRecord: boolean;
 }
 
@@ -68,7 +83,10 @@ export interface AccessRule {
   admin: boolean;
 }
 
-export type AccessMatrix = Record<DocumentCategory, Omit<AccessRule, "category">>;
+export type AccessMatrix = Record<
+  DocumentCategory,
+  Omit<AccessRule, "category">
+>;
 
 // ─── Implementation Checklist ───────────────────────────────────────────────
 export type ChecklistPriority = "high" | "medium" | "low";
@@ -80,11 +98,4 @@ export interface ChecklistItem {
   done: boolean;
   priority: ChecklistPriority;
   statute?: string;
-}
-
-// ─── UI State ───────────────────────────────────────────────────────────────
-export interface FilterState {
-  search: string;
-  category: DocumentCategory | "all";
-  accessLevel: "all" | "public" | "resident" | "admin";
 }

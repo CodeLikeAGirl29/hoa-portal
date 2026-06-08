@@ -6,38 +6,74 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id    String  @id @default(uuid())
-  email String  @unique
-  name  String?
-  role  String  @default("resident")
-  hoaId String
-  hoa   HOA     @relation(fields: [hoaId], references: [id])
-}
-
 model HOA {
-  id        String     @id @default(uuid())
-  name      String
+  id          String  @id @default(uuid())
+  name        String
+  slug        String  @unique   // e.g. "pelican-bay" — used in display/routing
+  logoUrl     String?           // URL to uploaded logo image
+  accentColor String  @default("#185FA5")  // hex brand color
+  address     String?
+  city        String?
+  state       String  @default("FL")
+  zip         String?
+  phone       String?
+  email       String?
+  website     String?
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
   users     User[]
   documents Document[]
   logs      AuditLog[]
 }
 
-model Document {
+model User {
   id        String   @id @default(uuid())
-  hoaId     String
-  hoa       HOA      @relation(fields: [hoaId], references: [id])
-  title     String
-  content   String
-  category  String
+  email     String   @unique
+  name      String?
+  password  String   // bcrypt hash
+  role      String   @default("resident")  // public | resident | admin | superadmin
+  hoaId     String?  // null = superadmin (can access all HOAs)
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hoa  HOA?      @relation(fields: [hoaId], references: [id])
+  logs AuditLog[]
+}
+
+model Document {
+  id                     String   @id @default(uuid())
+  hoaId                  String
+  title                  String
+  content                String
+  category               String
+  isPublic               Boolean  @default(false)
+  isAccessibleToResidents Boolean @default(true)
+  requiresLogin          Boolean  @default(true)
+  isMandatoryRecord      Boolean  @default(false)
+  fileSize               String?
+  pages                  Int?
+  uploadedBy             String?
+  uploadDate             DateTime @default(now())
+  lastModified           DateTime @updatedAt
+  createdAt              DateTime @default(now())
+
+  hoa HOA @relation(fields: [hoaId], references: [id])
 }
 
 model AuditLog {
-  id        String   @id @default(uuid())
-  hoaId     String
-  hoa       HOA      @relation(fields: [hoaId], references: [id])
-  action    String
-  userId    String
-  timestamp DateTime @default(now())
+  id            String   @id @default(uuid())
+  hoaId         String
+  userId        String
+  action        String
+  documentId    String?
+  documentTitle String?
+  ipAddress     String?
+  userAgent     String?
+  timestamp     DateTime @default(now())
+
+  hoa  HOA  @relation(fields: [hoaId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
