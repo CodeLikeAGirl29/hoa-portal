@@ -1,28 +1,27 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { prisma } from "@/lib/prisma";
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "text" },
-      },
+      credentials: { email: { label: "Email", type: "text" } },
       async authorize(credentials) {
-        // Replace with actual database lookup
-        if (credentials?.email === "board@pelicanbayhoa.org") {
-          return {
-            id: "admin-001",
-            name: "Board Admin",
-            email: credentials.email,
-            role: "admin",
-          };
-        }
+        if (!credentials?.email) return null;
+
+        // Real database lookup
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
+        if (!user) return null;
+
         return {
-          id: "res-001",
-          name: "Resident",
-          email: credentials.email,
-          role: "resident",
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          hoaId: user.hoaId,
         };
       },
     }),
@@ -31,7 +30,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
-        token.hoaId = (user as any).hoaId; // Injected from database user record
+        token.hoaId = (user as any).hoaId;
       }
       return token;
     },
@@ -39,6 +38,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).role = token.role;
         (session.user as any).hoaId = token.hoaId;
+        (session.user as any).id = token.sub; // Ensure ID is mapped
       }
       return session;
     },

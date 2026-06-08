@@ -72,7 +72,7 @@ export default function Dashboard() {
   const handleView = useCallback(
     (doc: HOADocument) => {
       setViewingDoc(doc);
-      logEvent("VIEW", doc.id, doc.title);
+      logEvent("VIEW", { documentId: doc.id, documentTitle: doc.title });
     },
     [logEvent],
   );
@@ -80,7 +80,7 @@ export default function Dashboard() {
   const handleDownload = useCallback(
     (doc: HOADocument) => {
       setDownloadToast(doc);
-      logEvent("DOWNLOAD", doc.id, doc.title);
+      logEvent("DOWNLOAD", { documentId: doc.id, documentTitle: doc.title });
     },
     [logEvent],
   );

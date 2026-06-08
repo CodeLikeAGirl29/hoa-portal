@@ -6,17 +6,18 @@ import type {
   AccessMatrix,
   DocumentCategory,
 } from "@/types";
+import { Document } from "@prisma/client";
 
 // ─── Access Matrix (F.S. 720.303) ─────────────────────────────────────────
 export const ACCESS_MATRIX: AccessMatrix = {
-  governing:      { public: true,  resident: true,  admin: true },
-  financial:      { public: false, resident: true,  admin: true },
-  meetings:       { public: true,  resident: true,  admin: true },
-  contracts:      { public: false, resident: true,  admin: true },
-  architectural:  { public: false, resident: true,  admin: true },
-  insurance:      { public: false, resident: true,  admin: true },
-  violations:     { public: false, resident: true,  admin: true },
-  legal:          { public: false, resident: false, admin: true },
+  governing: { public: true, resident: true, admin: true },
+  financial: { public: false, resident: true, admin: true },
+  meetings: { public: true, resident: true, admin: true },
+  contracts: { public: false, resident: true, admin: true },
+  architectural: { public: false, resident: true, admin: true },
+  insurance: { public: false, resident: true, admin: true },
+  violations: { public: false, resident: true, admin: true },
+  legal: { public: false, resident: false, admin: true },
 };
 
 /** Returns true if the given role can access a document */
@@ -28,27 +29,24 @@ export function canAccess(doc: HOADocument, role: UserRole): boolean {
 
 // ─── Redaction Patterns ────────────────────────────────────────────────────
 const PATTERNS: Record<RedactedField, RegExp> = {
-  ssn:         /\b\d{3}-\d{2}-\d{4}\b/g,
-  financials:  /\$[\d,]+\.\d{2}/g,
+  ssn: /\b\d{3}-\d{2}-\d{4}\b/g,
+  financials: /\$[\d,]+\.\d{2}/g,
   bankAccount: /\b\d{10,16}\b/g,
-  medical:     /\b(diagnosis|treatment|disability)\b/gi,
+  medical: /\b(diagnosis|treatment|disability)\b/gi,
 };
 
 const REPLACEMENTS: Record<RedactedField, string> = {
-  ssn:         "***-**-****",
-  financials:  "[$REDACTED]",
+  ssn: "***-**-****",
+  financials: "[$REDACTED]",
   bankAccount: "[ACCT-REDACTED]",
-  medical:     "[MEDICAL-REDACTED]",
+  medical: "[MEDICAL-REDACTED]",
 };
 
 /**
  * Redacts sensitive PII from document content based on the viewer's role.
  * Admins receive the original document unchanged.
  */
-export function redactDocument(
-  doc: HOADocument,
-  role: UserRole
-): RedactedDocument {
+export function redactDocument(doc: Document, role: string): RedactedDocument {
   if (role === "admin") {
     return { ...doc, wasRedacted: false, redactedFields: [] };
   }
@@ -56,7 +54,10 @@ export function redactDocument(
   let content = doc.content;
   const redactedFields: RedactedField[] = [];
 
-  for (const [field, pattern] of Object.entries(PATTERNS) as [RedactedField, RegExp][]) {
+  for (const [field, pattern] of Object.entries(PATTERNS) as [
+    RedactedField,
+    RegExp
+  ][]) {
     if (pattern.test(content)) {
       redactedFields.push(field);
       pattern.lastIndex = 0; // reset stateful regex
@@ -89,19 +90,49 @@ export const CATEGORY_META: Record<
   DocumentCategory,
   { label: string; icon: string; color: string; bg: string }
 > = {
-  governing:     { label: "Governing",     icon: "⚖️",  color: "#185FA5", bg: "#E6F1FB" },
-  financial:     { label: "Financial",     icon: "💰",  color: "#3B6D11", bg: "#EAF3DE" },
-  meetings:      { label: "Meetings",      icon: "📋",  color: "#854F0B", bg: "#FAEEDA" },
-  contracts:     { label: "Contracts",     icon: "📝",  color: "#712B13", bg: "#FAECE7" },
-  architectural: { label: "Architectural", icon: "🏗️",  color: "#533AB7", bg: "#EEEDFE" },
-  insurance:     { label: "Insurance",     icon: "🛡️",  color: "#0F6E56", bg: "#E1F5EE" },
-  violations:    { label: "Violations",    icon: "⚠️",  color: "#993C1D", bg: "#FAECE7" },
-  legal:         { label: "Legal",         icon: "🏛️",  color: "#5F5E5A", bg: "#F1EFE8" },
+  governing: {
+    label: "Governing",
+    icon: "⚖️",
+    color: "#185FA5",
+    bg: "#E6F1FB",
+  },
+  financial: {
+    label: "Financial",
+    icon: "💰",
+    color: "#3B6D11",
+    bg: "#EAF3DE",
+  },
+  meetings: { label: "Meetings", icon: "📋", color: "#854F0B", bg: "#FAEEDA" },
+  contracts: {
+    label: "Contracts",
+    icon: "📝",
+    color: "#712B13",
+    bg: "#FAECE7",
+  },
+  architectural: {
+    label: "Architectural",
+    icon: "🏗️",
+    color: "#533AB7",
+    bg: "#EEEDFE",
+  },
+  insurance: {
+    label: "Insurance",
+    icon: "🛡️",
+    color: "#0F6E56",
+    bg: "#E1F5EE",
+  },
+  violations: {
+    label: "Violations",
+    icon: "⚠️",
+    color: "#993C1D",
+    bg: "#FAECE7",
+  },
+  legal: { label: "Legal", icon: "🏛️", color: "#5F5E5A", bg: "#F1EFE8" },
 };
 
 export const REDACTED_FIELD_LABELS: Record<RedactedField, string> = {
-  ssn:         "SSN",
-  financials:  "financial amounts",
+  ssn: "SSN",
+  financials: "financial amounts",
   bankAccount: "account numbers",
-  medical:     "medical info",
+  medical: "medical info",
 };

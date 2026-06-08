@@ -10,60 +10,44 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-
-    // 1. Authenticate the session
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    const user = session?.user as
+      | { id: string; role: string; hoaId: string }
+      | undefined;
+
+    if (!user)
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
-    const { role, hoaId } = session.user as any;
-
-    // 2. Fetch document from real database, strictly scoped to hoaId
     const doc = await prisma.document.findFirst({
-      where: {
-        id: id,
-        hoaId: hoaId, // Multi-tenant isolation barrier
-      },
+      where: { id, hoaId: user.hoaId },
     });
 
-    if (!doc) {
-      return NextResponse.json(
-        { error: "Document not found" },
-        { status: 404 }
-      );
-    }
+    if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // 3. Enforce Access Matrix
-    if (!canAccess(doc, role)) {
+    if (!canAccess(doc, user.role)) {
       await prisma.auditLog.create({
         data: {
-          hoaId,
+          hoaId: user.hoaId,
           action: "UNAUTHORIZED_ACCESS_ATTEMPT",
-          userId: session.user.id,
-          documentId: id,
+          userId: user.id,
+          // Use 'connect' or provide the foreign key if your schema allows
+          document: { connect: { id } },
         },
       });
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 
-    // 4. Log the view event
     await prisma.auditLog.create({
-      data: { hoaId, action: "VIEW", userId: session.user.id, documentId: id },
-    });
-
-    // 5. Process and return redacted document
-    const processedDoc = redactDocument(doc, role);
-
-    return NextResponse.json(processedDoc, {
-      status: 200,
-      headers: {
-        "Cache-Control": "private, no-store, must-revalidate",
-        "X-Content-Type-Options": "nosniff",
+      data: {
+        hoaId: user.hoaId,
+        action: "VIEW",
+        userId: user.id,
+        document: { connect: { id } },
       },
     });
+
+    return NextResponse.json(redactDocument(doc, user.role), { status: 200 });
   } catch (error) {
-    console.error("[DOC_FETCH_ERROR]", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }
