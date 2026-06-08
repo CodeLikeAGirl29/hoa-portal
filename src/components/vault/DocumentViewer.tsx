@@ -12,7 +12,10 @@ interface DocumentViewerProps {
   onClose: () => void;
 }
 
-export function DocumentViewer({ document: doc, onClose }: DocumentViewerProps) {
+export function DocumentViewer({
+  document: doc,
+  onClose,
+}: DocumentViewerProps) {
   const { role } = useAuth();
   const { log } = useAuditLog();
   const redacted = redactDocument(doc, role);
@@ -49,7 +52,8 @@ export function DocumentViewer({ document: doc, onClose }: DocumentViewerProps) 
               <CategoryBadge category={doc.category} />
             </div>
             <p className="text-xs text-gray-400 m-0">
-              {doc.pages} pages · {doc.fileSize} · Last modified {doc.lastModified}
+              {doc.pages} pages · {doc.fileSize} · Last modified{" "}
+              {doc.lastModified}
             </p>
           </div>
           <button
@@ -69,7 +73,9 @@ export function DocumentViewer({ document: doc, onClose }: DocumentViewerProps) 
           <span className="text-white text-[11px] font-bold tracking-widest uppercase">
             ⚓ Official Record — Pelican Bay HOA
           </span>
-          <span className="text-white/60 text-[11px]">F.S. 720.303 Compliant</span>
+          <span className="text-white/60 text-[11px]">
+            F.S. 720.303 Compliant
+          </span>
         </div>
 
         {/* Scrollable content */}
@@ -83,9 +89,10 @@ export function DocumentViewer({ document: doc, onClose }: DocumentViewerProps) 
                 color: "#854F0B",
               }}
             >
-              <strong>Redaction Notice:</strong> This document has been automatically
-              redacted per F.S. 720 and your access level. SSNs, financial details,
-              account numbers, and medical information are masked.
+              <strong>Redaction Notice:</strong> This document has been
+              automatically redacted per F.S. 720 and your access level. SSNs,
+              financial details, account numbers, and medical information are
+              masked.
             </div>
           )}
 
@@ -105,7 +112,10 @@ export function DocumentViewer({ document: doc, onClose }: DocumentViewerProps) 
 
           <div
             className="rounded-xl p-5 text-sm leading-relaxed text-gray-700 border border-gray-100 whitespace-pre-wrap"
-            style={{ background: "#fdfcfa", fontFamily: "Georgia, 'Times New Roman', serif" }}
+            style={{
+              background: "#fdfcfa",
+              fontFamily: "Georgia, 'Times New Roman', serif",
+            }}
           >
             {redacted.content}
           </div>

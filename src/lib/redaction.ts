@@ -6,7 +6,6 @@ import type {
   AccessMatrix,
   DocumentCategory,
 } from "@/types";
-import { Document } from "@prisma/client";
 
 // ─── Access Matrix (F.S. 720.303) ─────────────────────────────────────────
 export const ACCESS_MATRIX: AccessMatrix = {
@@ -21,7 +20,10 @@ export const ACCESS_MATRIX: AccessMatrix = {
 };
 
 /** Returns true if the given role can access a document */
-export function canAccess(doc: HOADocument, role: UserRole): boolean {
+export function canAccess(
+  doc: Pick<HOADocument, "isPublic" | "isAccessibleToResidents">,
+  role: UserRole
+): boolean {
   if (role === "admin") return true;
   if (role === "resident") return doc.isAccessibleToResidents;
   return doc.isPublic;
@@ -43,10 +45,13 @@ const REPLACEMENTS: Record<RedactedField, string> = {
 };
 
 /**
- * Redacts sensitive PII from document content based on the viewer's role.
+ * Redacts sensitive PII from a HOADocument based on the viewer's role.
  * Admins receive the original document unchanged.
  */
-export function redactDocument(doc: Document, role: string): RedactedDocument {
+export function redactDocument(
+  doc: HOADocument,
+  role: UserRole
+): RedactedDocument {
   if (role === "admin") {
     return { ...doc, wasRedacted: false, redactedFields: [] };
   }
@@ -60,7 +65,7 @@ export function redactDocument(doc: Document, role: string): RedactedDocument {
   ][]) {
     if (pattern.test(content)) {
       redactedFields.push(field);
-      pattern.lastIndex = 0; // reset stateful regex
+      pattern.lastIndex = 0;
       content = content.replace(pattern, REPLACEMENTS[field]);
     }
     pattern.lastIndex = 0;
