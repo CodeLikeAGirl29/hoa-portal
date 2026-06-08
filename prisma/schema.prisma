@@ -4,7 +4,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String  @id @default(uuid())
+  email String  @unique
+  name  String?
+  role  String  @default("resident")
+  hoaId String
+  hoa   HOA     @relation(fields: [hoaId], references: [id])
 }
 
 model HOA {
