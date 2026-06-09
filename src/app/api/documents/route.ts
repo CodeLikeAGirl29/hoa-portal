@@ -2,66 +2,33 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { UserRole, DocumentCategory } from "@/types";
-import { redactDocument } from "@/lib/redaction";
-
-// ─── Access rules mirroring ACCESS_MATRIX ─────────────────────────────────
-const RESIDENT_CATEGORIES = new Set([
-  "governing",
-  "financial",
-  "meetings",
-  "contracts",
-  "architectural",
-  "insurance",
-  "violations",
-]);
-
-function canAccessCategory(category: string, role: UserRole): boolean {
-  if (role === "admin" || role === "superadmin") return true;
-  if (role === "resident") return RESIDENT_CATEGORIES.has(category);
-  return false; // public — filtered by isPublic flag instead
-}
+import { sendEmail, newDocumentEmailHtml } from "@/lib/email";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user as any;
-  const role = (sessionUser?.role ?? "public") as UserRole;
+  const role = sessionUser?.role ?? "public";
   const hoaId = sessionUser?.hoaId as string | null;
 
   const { searchParams } = new URL(req.url);
   const search = searchParams.get("search")?.toLowerCase() ?? "";
   const category = searchParams.get("category") ?? "all";
-
-  // Public users must supply an hoaId query param (for public HOA pages).
-  // Authenticated users use their session hoaId.
   const targetHoaId = hoaId ?? searchParams.get("hoaId");
 
   if (!targetHoaId) {
     return NextResponse.json({ error: "No HOA context." }, { status: 400 });
   }
 
-  // Build where clause
   const where: Record<string, unknown> = { hoaId: targetHoaId };
-
-  // Access filtering
-  if (role === "public") {
-    where.isPublic = true;
-  } else if (role === "resident") {
-    where.isAccessibleToResidents = true;
-  }
-  // admin/superadmin: no filter, see everything
-
-  // Category filter
-  if (category !== "all") {
-    where.category = category;
-  }
+  if (role === "public") where.isPublic = true;
+  else if (role === "resident") where.isAccessibleToResidents = true;
+  if (category !== "all") where.category = category;
 
   const docs = await prisma.document.findMany({
     where,
     orderBy: [{ category: "asc" }, { uploadDate: "desc" }],
   });
 
-  // Text search (done in JS after fetch — small enough datasets for HOA)
   const filtered = search
     ? docs.filter(
         (d) =>
@@ -70,26 +37,136 @@ export async function GET(req: Request) {
       )
     : docs;
 
-  // Map Prisma Document → HOADocument shape, then redact
-  const results = filtered.map((doc) => {
-    const hoaDoc = {
-      id: doc.id,
-      hoaId: doc.hoaId,
-      title: doc.title,
-      category: doc.category as DocumentCategory,
-      content: doc.content,
-      isPublic: doc.isPublic,
-      isAccessibleToResidents: doc.isAccessibleToResidents,
-      requiresLogin: doc.requiresLogin,
-      uploadDate: doc.uploadDate.toISOString().split("T")[0],
-      lastModified: doc.lastModified.toISOString().split("T")[0],
-      fileSize: doc.fileSize,
-      pages: doc.pages,
-      uploadedBy: doc.uploadedBy,
-      isMandatoryRecord: doc.isMandatoryRecord,
-    };
-    return redactDocument(hoaDoc, role);
-  });
+  const { redactDocument } = await import("@/lib/redaction");
+  const results = filtered.map((doc) =>
+    redactDocument(
+      {
+        id: doc.id,
+        hoaId: doc.hoaId,
+        title: doc.title,
+        category: doc.category as any,
+        content: doc.content,
+        isPublic: doc.isPublic,
+        isAccessibleToResidents: doc.isAccessibleToResidents,
+        requiresLogin: doc.requiresLogin,
+        uploadDate: doc.uploadDate.toISOString().split("T")[0],
+        lastModified: doc.lastModified.toISOString().split("T")[0],
+        fileSize: doc.fileSize,
+        pages: doc.pages,
+        uploadedBy: doc.uploadedBy,
+        isMandatoryRecord: doc.isMandatoryRecord,
+      },
+      role as any
+    )
+  );
 
   return NextResponse.json(results);
+}
+
+export async function POST(req: Request) {
+  const session = await getServerSession(authOptions);
+  const user = session?.user as any;
+
+  if (!user || !["admin", "superadmin"].includes(user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  if (!user.hoaId) {
+    return NextResponse.json({ error: "No HOA assigned." }, { status: 400 });
+  }
+
+  const body = await req.json();
+  const {
+    title,
+    category,
+    content,
+    isPublic,
+    isAccessibleToResidents,
+    requiresLogin,
+    isMandatoryRecord,
+    fileSize,
+    pages,
+    notifyResidents = true,
+  } = body;
+
+  if (!title || !category || !content) {
+    return NextResponse.json(
+      { error: "Title, category, and content are required." },
+      { status: 400 }
+    );
+  }
+
+  const doc = await prisma.document.create({
+    data: {
+      hoaId: user.hoaId,
+      title: title.trim(),
+      category,
+      content: content.trim(),
+      isPublic: isPublic ?? false,
+      isAccessibleToResidents: isAccessibleToResidents ?? true,
+      requiresLogin: requiresLogin ?? true,
+      isMandatoryRecord: isMandatoryRecord ?? false,
+      fileSize: fileSize || null,
+      pages: pages || null,
+      uploadedBy: user.id,
+    },
+  });
+
+  // Log audit entry
+  await prisma.auditLog.create({
+    data: {
+      hoaId: user.hoaId,
+      userId: user.id,
+      action: "CREATE",
+      documentId: doc.id,
+      documentTitle: doc.title,
+      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown",
+    },
+  });
+
+  // Notify residents if this is a resident-accessible document
+  if (notifyResidents && (isAccessibleToResidents || isPublic)) {
+    try {
+      const [hoa, residents] = await Promise.all([
+        prisma.hOA.findUnique({ where: { id: user.hoaId } }),
+        prisma.user.findMany({
+          where: { hoaId: user.hoaId, role: "resident", active: true },
+          select: { email: true },
+        }),
+      ]);
+
+      if (hoa && residents.length > 0) {
+        const loginUrl = `${
+          process.env.NEXTAUTH_URL ?? "https://floridahoaportal.com"
+        }/login`;
+        const uploaderUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { name: true, email: true },
+        });
+
+        // Send in batches to avoid rate limits
+        const emails = residents.map((r) => r.email);
+        const BATCH = 50;
+        for (let i = 0; i < emails.length; i += BATCH) {
+          await sendEmail({
+            to: emails.slice(i, i + BATCH),
+            subject: `New Document: ${doc.title} — ${hoa.name}`,
+            html: newDocumentEmailHtml({
+              hoaName: hoa.name,
+              accentColor: hoa.accentColor,
+              documentTitle: doc.title,
+              category: doc.category,
+              uploadedBy:
+                uploaderUser?.name ?? uploaderUser?.email ?? "Your HOA Admin",
+              loginUrl,
+            }),
+          });
+        }
+      }
+    } catch (emailErr) {
+      // Don't fail the request if email fails
+      console.error("Email notification error:", emailErr);
+    }
+  }
+
+  return NextResponse.json(doc, { status: 201 });
 }
