@@ -13,7 +13,11 @@ function RedactionWarning({ fields }: RedactionWarningProps) {
   return (
     <div
       className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs mt-2"
-      style={{ background: "#FAEEDA", border: "1px solid #EF9F27", color: "#854F0B" }}
+      style={{
+        background: "#FAEEDA",
+        border: "1px solid #EF9F27",
+        color: "#854F0B",
+      }}
     >
       <span>⚠️</span>
       <span>
@@ -28,9 +32,17 @@ interface DocumentCardProps {
   document: RedactedDocument;
   onView: (doc: HOADocument) => void;
   onDownload: (doc: HOADocument) => void;
+  onEdit?: (doc: RedactedDocument) => void;
+  onDelete?: (doc: RedactedDocument) => void;
 }
 
-export function DocumentCard({ document: doc, onView, onDownload }: DocumentCardProps) {
+export function DocumentCard({
+  document: doc,
+  onView,
+  onDownload,
+  onEdit,
+  onDelete,
+}: DocumentCardProps) {
   const preview =
     doc.content.length > 160 ? doc.content.slice(0, 157) + "…" : doc.content;
 
@@ -38,11 +50,16 @@ export function DocumentCard({ document: doc, onView, onDownload }: DocumentCard
     <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col gap-3 transition-shadow duration-200 hover:shadow-md">
       {/* Header */}
       <div className="flex justify-between items-start gap-2">
-        <h3 className="m-0 text-sm font-semibold text-gray-900 leading-snug">{doc.title}</h3>
-        <AccessBadge isPublic={doc.isPublic} isResident={doc.isAccessibleToResidents} />
+        <h3 className="m-0 text-sm font-semibold text-gray-900 leading-snug">
+          {doc.title}
+        </h3>
+        <AccessBadge
+          isPublic={doc.isPublic}
+          isResident={doc.isAccessibleToResidents}
+        />
       </div>
 
-      {/* Meta */}
+      {/* Badges */}
       <div className="flex gap-2 flex-wrap items-center">
         <CategoryBadge category={doc.category} />
         {doc.isMandatoryRecord && (
@@ -50,9 +67,13 @@ export function DocumentCard({ document: doc, onView, onDownload }: DocumentCard
             F.S. 720 Required
           </span>
         )}
-        <span className="text-[11px] text-gray-400">
-          {doc.pages}p · {doc.fileSize}
-        </span>
+        {(doc.pages || doc.fileSize) && (
+          <span className="text-[11px] text-gray-400">
+            {doc.pages ? `${doc.pages}p` : ""}
+            {doc.pages && doc.fileSize ? " · " : ""}
+            {doc.fileSize ?? ""}
+          </span>
+        )}
       </div>
 
       {/* Preview */}
@@ -63,7 +84,7 @@ export function DocumentCard({ document: doc, onView, onDownload }: DocumentCard
         {preview}
       </div>
 
-      {/* Redaction Warning */}
+      {/* Redaction warning */}
       {doc.wasRedacted && <RedactionWarning fields={doc.redactedFields} />}
 
       {/* Dates */}
@@ -80,16 +101,37 @@ export function DocumentCard({ document: doc, onView, onDownload }: DocumentCard
           className="flex-1"
           onClick={() => onView(doc)}
         >
-          View Document
+          View
         </Button>
         <Button
           variant="secondary"
           size="sm"
           onClick={() => onDownload(doc)}
-          title="Download (watermarked)"
+          title="Download"
         >
           ⬇
         </Button>
+        {onEdit && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(doc)}
+            title="Edit"
+          >
+            ✏️
+          </Button>
+        )}
+        {onDelete && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(doc)}
+            title="Delete"
+            className="text-red-500 hover:bg-red-50 hover:border-red-200"
+          >
+            🗑
+          </Button>
+        )}
       </div>
     </div>
   );
