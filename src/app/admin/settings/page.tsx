@@ -281,7 +281,7 @@ export default function HOASettingsPage() {
       });
 
       setSaved(true);
-      clearTimeout(savedTimer.current);
+      if (savedTimer.current) clearTimeout(savedTimer.current);
       savedTimer.current = setTimeout(() => setSaved(false), 3000);
     } catch (err: any) {
       setError(err.message ?? "Something went wrong.");
