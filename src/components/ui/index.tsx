@@ -10,6 +10,7 @@ const ROLE_STYLES: Record<
   public: { bg: "#F1EFE8", color: "#5F5E5A", label: "Public View" },
   resident: { bg: "#E6F1FB", color: "#185FA5", label: "Resident" },
   admin: { bg: "#EAF3DE", color: "#3B6D11", label: "Administrator" },
+  superadmin: { bg: "#EEEDFE", color: "#533AB7", label: "Super Admin" },
 };
 
 export function RoleBadge({
