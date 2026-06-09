@@ -1,8 +1,12 @@
-import { PrismaClient } from "@prisma/client/wasm";
+// src/lib/prisma.ts
+// PrismaClient is available after `prisma generate` runs (via postinstall).
+// The adapter is required by Prisma 7 — no legacy URL-based engine.
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
 declare global {
+  // eslint-disable-next-line no-var
   var prisma: PrismaClient | undefined;
 }
 
@@ -12,5 +16,7 @@ const prismaClientSingleton = (): PrismaClient => {
   return new PrismaClient({ adapter });
 };
 
-export const prisma: PrismaClient = globalThis.prisma ?? prismaClientSingleton();
+export const prisma: PrismaClient =
+  globalThis.prisma ?? prismaClientSingleton();
+
 if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;

@@ -1,6 +1,5 @@
 // prisma/seed.ts
-// Run with: npx prisma db seed
-import { PrismaClient } from "@prisma/client/wasm";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
@@ -12,7 +11,6 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding Florida HOA Portal...");
 
-  // ─── HOAs ────────────────────────────────────────────────────────────────
   const pelicanBay = await prisma.hOA.upsert({
     where: { slug: "pelican-bay" },
     update: {},
@@ -61,10 +59,8 @@ async function main() {
     },
   });
 
-  // ─── Users ────────────────────────────────────────────────────────────────
   const hash = async (pw: string) => bcrypt.hash(pw, 10);
 
-  // Pelican Bay users
   await prisma.user.upsert({
     where: { email: "admin@pelicanbayhoa.org" },
     update: {},
@@ -89,7 +85,6 @@ async function main() {
     },
   });
 
-  // Palm Grove users
   await prisma.user.upsert({
     where: { email: "admin@palmgrovehoa.org" },
     update: {},
@@ -114,7 +109,6 @@ async function main() {
     },
   });
 
-  // Sunset Ridge users
   await prisma.user.upsert({
     where: { email: "admin@sunsetridgehoa.com" },
     update: {},
@@ -127,7 +121,6 @@ async function main() {
     },
   });
 
-  // Superadmin (can see all HOAs)
   await prisma.user.upsert({
     where: { email: "superadmin@floridahoaportal.com" },
     update: {},
@@ -140,7 +133,6 @@ async function main() {
     },
   });
 
-  // ─── Sample documents for Pelican Bay ─────────────────────────────────────
   await prisma.document.upsert({
     where: { id: "doc-pb-001" },
     update: {},
@@ -179,7 +171,6 @@ async function main() {
     },
   });
 
-  // ─── Sample documents for Palm Grove ─────────────────────────────────────
   await prisma.document.upsert({
     where: { id: "doc-pg-001" },
     update: {},
