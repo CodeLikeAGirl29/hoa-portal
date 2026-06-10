@@ -9,9 +9,9 @@ datasource db {
 model HOA {
   id          String  @id @default(uuid())
   name        String
-  slug        String  @unique   // e.g. "pelican-bay" — used in display/routing
-  logoUrl     String?           // URL to uploaded logo image
-  accentColor String  @default("#185FA5")  // hex brand color
+  slug        String  @unique
+  logoUrl     String?
+  accentColor String  @default("#185FA5")
   address     String?
   city        String?
   state       String  @default("FL")
@@ -19,37 +19,37 @@ model HOA {
   phone       String?
   email       String?
   website     String?
-  active      Boolean @default(true)
+  active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  users     User[]
-  documents Document[]
-  logs      AuditLog[]
+  users         User[]
+  documents     Document[]
+  logs          AuditLog[]
+  announcements Announcement[]
 }
 
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
-  password  String   // bcrypt hash
-  role      String   @default("resident")  // public | resident | admin | superadmin
-  hoaId     String?  // null = superadmin (can access all HOAs)
+  password  String
+  role      String   @default("resident")
+  hoaId     String?
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  hoa  HOA?      @relation(fields: [hoaId], references: [id])
-  logs AuditLog[]
+  hoa           HOA?           @relation(fields: [hoaId], references: [id])
+  logs          AuditLog[]
+  announcements Announcement[]
 }
 
 model Document {
-  id                     String   @id @default(cuid())
+  id                     String   @id @default(uuid())
   hoaId                  String
   title                  String
-  content                String?
-  fileUrl                String?
-  fileType               String?
+  content                String
   category               String
   isPublic               Boolean  @default(false)
   isAccessibleToResidents Boolean @default(true)
@@ -61,7 +61,6 @@ model Document {
   uploadDate             DateTime @default(now())
   lastModified           DateTime @updatedAt
   createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
 
   hoa HOA @relation(fields: [hoaId], references: [id])
 }
@@ -79,4 +78,19 @@ model AuditLog {
 
   hoa  HOA  @relation(fields: [hoaId], references: [id])
   user User @relation(fields: [userId], references: [id])
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  hoaId     String
+  authorId  String
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  hoa    HOA  @relation(fields: [hoaId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
 }

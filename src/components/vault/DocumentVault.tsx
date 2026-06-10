@@ -6,7 +6,7 @@ import { CATEGORY_META } from "@/lib/redaction";
 import { useAuth } from "@/hooks/useAuth";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentUploadModal } from "./DocumentUploadModal";
-import DocumentViewer from "./DocumentViewer";
+import { DocumentViewer } from "./DocumentViewer";
 
 interface DocumentVaultProps {
   onView: (id: string) => void;
