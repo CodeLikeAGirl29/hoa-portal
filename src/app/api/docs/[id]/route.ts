@@ -64,15 +64,21 @@ export async function GET(
       await prisma.auditLog.create({
         data: {
           hoaId: user.hoaId,
-          action: "UNAUTHORIZED_ACCESS_ATTEMPT",
+          action: "VIEW",
           userId: user.id,
+          detail: `Viewed document: ${doc.title}`, // ← add this
         },
       });
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 
     await prisma.auditLog.create({
-      data: { hoaId: user.hoaId, action: "VIEW", userId: user.id },
+      data: {
+        hoaId: user.hoaId,
+        action: "UNAUTHORIZED_ACCESS_ATTEMPT",
+        userId: user.id,
+        detail: `Blocked access to "${doc.title}" (category: ${doc.category})`,
+      },
     });
 
     const content = role === "admin" ? doc.content : redactContent(doc.content);
