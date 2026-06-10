@@ -4,8 +4,6 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { UserRole } from "@/types";
 
-// Inline redaction patterns — keeps the API route independent of the
-// HOADocument shape that the Prisma Document model doesn't satisfy.
 const REDACTION_PATTERNS: [RegExp, string][] = [
   [/\b\d{3}-\d{2}-\d{4}\b/g, "***-**-****"],
   [/\$[\d,]+\.\d{2}/g, "[$REDACTED]"],
@@ -33,7 +31,7 @@ const RESIDENT_ACCESSIBLE = new Set([
 const PUBLIC_ACCESSIBLE = new Set(["governing", "meetings"]);
 
 function canAccessCategory(category: string, role: UserRole): boolean {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "superadmin") return true;
   if (role === "resident") return RESIDENT_ACCESSIBLE.has(category);
   return PUBLIC_ACCESSIBLE.has(category);
 }
@@ -60,12 +58,13 @@ export async function GET(
 
     const role = user.role as UserRole;
 
+    // Blocked — log the attempt and return 403
     if (!canAccessCategory(doc.category, role)) {
       await prisma.auditLog.create({
         data: {
           hoaId: user.hoaId,
-          action: "VIEW",
           userId: user.id,
+          action: "UNAUTHORIZED_ACCESS_ATTEMPT",
           documentId: doc.id,
           documentTitle: doc.title,
         },
@@ -73,18 +72,22 @@ export async function GET(
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
     }
 
+    // Allowed — log the view
     await prisma.auditLog.create({
       data: {
         hoaId: user.hoaId,
-        action: "UNAUTHORIZED_ACCESS_ATTEMPT",
         userId: user.id,
+        action: "VIEW",
         documentId: doc.id,
         documentTitle: doc.title,
-        detail: `Blocked access to "${doc.title}" (category: ${doc.category})`,
       },
     });
 
-    const content = role === "admin" ? doc.content : redactContent(doc.content);
+    const content =
+      role === "admin" || role === "superadmin"
+        ? doc.content
+        : redactContent(doc.content);
+
     return NextResponse.json({ ...doc, content }, { status: 200 });
   } catch {
     return NextResponse.json(
