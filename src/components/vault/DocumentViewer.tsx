@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import type { HOADocument } from "@/types";
+import type { RedactedDocument } from "@/types";
 import { CategoryBadge, Button } from "@/components/ui";
+import { REDACTED_FIELD_LABELS } from "@/lib/redaction";
 import { useAuditLog } from "@/hooks/useAuditLog";
 
 interface DocumentViewerProps {
-  document: HOADocument | null;
+  document: RedactedDocument | null;
   onClose: () => void;
 }
 
@@ -24,11 +25,9 @@ export function DocumentViewer({
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [doc, log, onClose]);
+  }, [doc?.id, log, onClose]);
 
   if (!doc) return null;
-
-  const content = typeof doc.content === "string" ? doc.content : "";
 
   return (
     <div
@@ -76,19 +75,33 @@ export function DocumentViewer({
           <span className="text-white/60 text-[11px]">F.S. 720.303</span>
         </div>
 
-        {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 p-6">
-          {!doc.isPublic && (
+        {/* Content */}
+        <div className="overflow-y-auto flex-1 p-6 space-y-4">
+          {doc.wasRedacted && (
             <div
-              className="rounded-xl px-4 py-3 text-sm mb-4"
+              className="rounded-xl px-4 py-3 text-sm"
               style={{
                 background: "#FAEEDA",
                 border: "1px solid #EF9F27",
                 color: "#854F0B",
               }}
             >
-              <strong>Access Notice:</strong> This document may contain redacted
-              fields per F.S. 720 and your access level.
+              <strong>Redaction Notice:</strong> Sensitive data has been
+              automatically redacted per F.S. 720 and your access level.
+            </div>
+          )}
+
+          {doc.wasRedacted && doc.redactedFields.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {doc.redactedFields.map((f) => (
+                <span
+                  key={f}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: "#FAECE7", color: "#712B13" }}
+                >
+                  🔒 {REDACTED_FIELD_LABELS[f]} redacted
+                </span>
+              ))}
             </div>
           )}
 
@@ -99,9 +112,9 @@ export function DocumentViewer({
               fontFamily: "Georgia, 'Times New Roman', serif",
             }}
           >
-            {content || (
+            {doc.content || (
               <span className="text-gray-300 italic">
-                No content available for this document.
+                No content available.
               </span>
             )}
           </div>

@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentUploadModal } from "./DocumentUploadModal";
-import type { HOADocument, RedactedDocument } from "@/types";
+import type { RedactedDocument } from "@/types";
 
 interface DocumentVaultProps {
-  onView: (doc: HOADocument | RedactedDocument) => void;
-  onDownload: (doc: HOADocument | RedactedDocument) => void;
+  onView: (doc: RedactedDocument) => void;
+  onDownload: (doc: RedactedDocument) => void;
 }
 
 const CATEGORIES = [
@@ -31,6 +31,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
   const [search, setSearch] = useState("");
   const [activeCategory, setCategory] = useState("All");
   const [showUpload, setShowUpload] = useState(false);
+  const [editingDoc, setEditingDoc] = useState<RedactedDocument | null>(null);
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -51,11 +52,23 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
     fetchDocs();
   }, [fetchDocs]);
 
+  async function handleDelete(doc: RedactedDocument) {
+    if (!confirm(`Delete "${doc.title}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      fetchDocs();
+    } catch (err: any) {
+      alert(err.message ?? "Delete failed");
+    }
+  }
+
   const filtered = docs.filter((d) => {
     const matchesSearch =
       !search || d.title.toLowerCase().includes(search.toLowerCase());
     const matchesCategory =
-      activeCategory === "All" || d.category === activeCategory;
+      activeCategory === "All" ||
+      d.category.toLowerCase() === activeCategory.toLowerCase();
     return matchesSearch && matchesCategory;
   });
 
@@ -98,7 +111,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
         ))}
       </div>
 
-      {/* States */}
+      {/* Loading */}
       {loading && (
         <div className="py-16 text-center">
           <div className="text-3xl mb-3 animate-pulse">📄</div>
@@ -106,19 +119,21 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
         </div>
       )}
 
+      {/* Error */}
       {!loading && error && (
         <div className="py-8 text-center">
           <div className="text-3xl mb-3">⚠️</div>
-          <div className="text-sm text-red-500">{error}</div>
+          <div className="text-sm text-red-500 mb-3">{error}</div>
           <button
             onClick={fetchDocs}
-            className="mt-3 px-4 py-2 rounded-xl text-sm text-blue-600 border border-blue-200 hover:bg-blue-50 cursor-pointer bg-white"
+            className="px-4 py-2 rounded-xl text-sm text-blue-600 border border-blue-200 hover:bg-blue-50 cursor-pointer bg-white"
           >
             Try again
           </button>
         </div>
       )}
 
+      {/* Empty */}
       {!loading && !error && filtered.length === 0 && (
         <div className="py-16 text-center">
           <div className="text-4xl mb-3">📭</div>
@@ -130,6 +145,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
         </div>
       )}
 
+      {/* Document grid */}
       {!loading && !error && filtered.length > 0 && (
         <div className="grid gap-3">
           {filtered.map((doc) => (
@@ -138,19 +154,38 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
               document={doc}
               onView={() => onView(doc)}
               onDownload={() => onDownload(doc)}
-              onDeleted={fetchDocs}
+              onEdit={isAdmin ? () => setEditingDoc(doc) : undefined}
+              onDelete={isAdmin ? () => handleDelete(doc) : undefined}
             />
           ))}
         </div>
       )}
 
+      {/* Add document modal */}
       {showUpload && (
         <DocumentUploadModal
+          onSave={fetchDocs}
           onClose={() => setShowUpload(false)}
-          onSuccess={() => {
-            setShowUpload(false);
-            fetchDocs();
+        />
+      )}
+
+      {/* Edit document modal */}
+      {editingDoc && (
+        <DocumentUploadModal
+          initial={{
+            id: editingDoc.id,
+            title: editingDoc.title,
+            category: editingDoc.category,
+            content: editingDoc.content,
+            isPublic: editingDoc.isPublic,
+            isAccessibleToResidents: editingDoc.isAccessibleToResidents,
+            requiresLogin: editingDoc.requiresLogin,
+            isMandatoryRecord: editingDoc.isMandatoryRecord,
+            fileSize: editingDoc.fileSize ?? "",
+            pages: editingDoc.pages ? String(editingDoc.pages) : "",
           }}
+          onSave={fetchDocs}
+          onClose={() => setEditingDoc(null)}
         />
       )}
     </div>
