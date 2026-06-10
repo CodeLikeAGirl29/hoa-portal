@@ -1,20 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import type { HOADocument, RedactedDocument } from "@/types";
+import type { HOADocument } from "@/types";
 import { CategoryBadge, Button } from "@/components/ui";
-import { REDACTED_FIELD_LABELS } from "@/lib/redaction";
 import { useAuditLog } from "@/hooks/useAuditLog";
 
 interface DocumentViewerProps {
-  document: HOADocument | RedactedDocument;
+  document: HOADocument | null;
   onClose: () => void;
-}
-
-function isRedacted(
-  doc: HOADocument | RedactedDocument,
-): doc is RedactedDocument {
-  return "wasRedacted" in doc;
 }
 
 export function DocumentViewer({
@@ -23,21 +16,19 @@ export function DocumentViewer({
 }: DocumentViewerProps) {
   const { log } = useAuditLog();
 
-  const content = doc?.content ?? "";
-  const wasRedacted = isRedacted(doc) ? doc.wasRedacted : false;
-  const redactedFields = isRedacted(doc) ? doc.redactedFields : [];
-
   useEffect(() => {
-    if (!doc?.id) return;
+    if (!doc) return;
     log("VIEW", { documentId: doc.id, documentTitle: doc.title });
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [doc?.id, doc?.title, log, onClose]);
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [doc, log, onClose]);
 
   if (!doc) return null;
+
+  const content = typeof doc.content === "string" ? doc.content : "";
 
   return (
     <div
@@ -48,7 +39,8 @@ export function DocumentViewer({
       aria-labelledby="doc-viewer-title"
     >
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-        <div className="flex justify-between items-start px-6 py-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
+        {/* Header */}
+        <div className="flex justify-between items-start px-6 py-5 border-b border-gray-100 bg-white rounded-t-2xl">
           <div>
             <div className="flex items-center gap-3 mb-1 flex-wrap">
               <h2
@@ -62,17 +54,18 @@ export function DocumentViewer({
             <p className="text-xs text-gray-400 m-0">
               {doc.pages ? `${doc.pages} pages · ` : ""}
               {doc.fileSize ? `${doc.fileSize} · ` : ""}
-              Last modified {doc.lastModified}
+              Last modified {String(doc.lastModified ?? "")}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent flex-shrink-0"
+            className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent flex-shrink-0"
           >
             ×
           </button>
         </div>
 
+        {/* Banner */}
         <div
           className="flex items-center justify-between px-6 py-2 flex-shrink-0"
           style={{ background: "linear-gradient(135deg, #185FA5, #0C447C)" }}
@@ -80,37 +73,22 @@ export function DocumentViewer({
           <span className="text-white text-[11px] font-bold tracking-widest uppercase">
             ⚓ Official Record — Florida HOA Portal
           </span>
-          <span className="text-white/60 text-[11px]">
-            F.S. 720.303 Compliant
-          </span>
+          <span className="text-white/60 text-[11px]">F.S. 720.303</span>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-6 space-y-4">
-          {wasRedacted && (
+        {/* Scrollable content */}
+        <div className="overflow-y-auto flex-1 p-6">
+          {!doc.isPublic && (
             <div
-              className="rounded-xl px-4 py-3 text-sm"
+              className="rounded-xl px-4 py-3 text-sm mb-4"
               style={{
                 background: "#FAEEDA",
                 border: "1px solid #EF9F27",
                 color: "#854F0B",
               }}
             >
-              <strong>Redaction Notice:</strong> Sensitive data has been
-              automatically redacted per F.S. 720 and your access level.
-            </div>
-          )}
-
-          {wasRedacted && redactedFields.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {redactedFields.map((f) => (
-                <span
-                  key={f}
-                  className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: "#FAECE7", color: "#712B13" }}
-                >
-                  🔒 {REDACTED_FIELD_LABELS[f]} redacted
-                </span>
-              ))}
+              <strong>Access Notice:</strong> This document may contain redacted
+              fields per F.S. 720 and your access level.
             </div>
           )}
 
@@ -123,12 +101,13 @@ export function DocumentViewer({
           >
             {content || (
               <span className="text-gray-300 italic">
-                No content available.
+                No content available for this document.
               </span>
             )}
           </div>
         </div>
 
+        {/* Footer */}
         <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
           <span className="text-[11px] text-gray-400">
             Accessed {new Date().toLocaleString()} · Logged to audit trail
