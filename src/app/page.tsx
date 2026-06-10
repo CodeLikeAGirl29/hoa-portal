@@ -50,9 +50,9 @@ function DocumentPortal() {
   const [downloadToast, setDownloadToast] = useState<HOADocument | null>(null);
 
   const handleView = useCallback(
-    (doc: HOADocument) => {
-      setViewingDocId(doc.id); // Save ID instead of object
-      logEvent("VIEW", { documentId: doc.id, documentTitle: doc.title });
+    (id: string) => {
+      setViewingDocId(id);
+      logEvent("VIEW", { documentId: id });
     },
     [logEvent],
   );

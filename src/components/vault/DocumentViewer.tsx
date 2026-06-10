@@ -8,11 +8,16 @@ interface Document {
   id: string;
   title: string;
   category: string;
-  content?: string | null;
+  content: string; // your schema has this as non-optional
+  isPublic: boolean;
+  isAccessibleToResidents: boolean;
+  uploadDate: string; // not createdAt
+  lastModified: string; // not updatedAt
+  fileSize: string | null;
+  pages: number | null;
   fileUrl?: string | null;
   fileType?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  wasRedacted?: boolean;
 }
 
 interface Props {
@@ -32,12 +37,12 @@ export default function DocumentViewer({ docId, onClose }: Props) {
     setError(null);
     setDoc(null);
 
-    fetch(`/api/docs/${docId}`)
+    fetch(`/api/docs/${docId}`, { credentials: "include" })
       .then((res) => {
         if (!res.ok) throw new Error(`Failed to load document (${res.status})`);
         return res.json();
       })
-      .then(({ doc }) => setDoc(doc))
+      .then((data) => setDoc(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [docId]);
@@ -62,12 +67,7 @@ export default function DocumentViewer({ docId, onClose }: Props) {
               </h2>
               {doc && (
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {doc.category} · Updated{" "}
-                  {new Date(doc.updatedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {doc.category} · Updated {doc.lastModified}
                 </p>
               )}
             </div>
@@ -110,9 +110,9 @@ export default function DocumentViewer({ docId, onClose }: Props) {
                 onClick={() => {
                   setError(null);
                   setLoading(true);
-                  fetch(`/api/docs/${docId}`)
+                  fetch(`/api/docs/${docId}`, { credentials: "include" })
                     .then((r) => r.json())
-                    .then(({ doc }) => setDoc(doc))
+                    .then((data) => setDoc(data))
                     .catch((e) => setError(e.message))
                     .finally(() => setLoading(false));
                 }}

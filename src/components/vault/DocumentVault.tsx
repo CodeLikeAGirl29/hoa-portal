@@ -6,9 +6,10 @@ import { CATEGORY_META } from "@/lib/redaction";
 import { useAuth } from "@/hooks/useAuth";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentUploadModal } from "./DocumentUploadModal";
+import DocumentViewer from "./DocumentViewer";
 
 interface DocumentVaultProps {
-  onView: (doc: HOADocument) => void;
+  onView: (id: string) => void;
   onDownload: (doc: HOADocument) => void;
 }
 
@@ -35,7 +36,9 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
       if (filterCat !== "all") params.set("category", filterCat);
       if (hoa?.id) params.set("hoaId", hoa.id); // Ensures superadmins/public pass the context
 
-      const res = await fetch(`/api/documents?${params}`);
+      const res = await fetch(`/api/documents?${params}`, {
+        credentials: "include",
+      });
 
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
@@ -60,8 +63,8 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
   }, [search, filterCat, hoa?.id]);
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (hoa?.id) fetchDocuments();
+  }, [fetchDocuments, hoa?.id]);
 
   async function handleDelete(doc: RedactedDocument) {
     if (!confirm(`Delete "${doc.title}"? This cannot be undone.`)) return;
@@ -196,6 +199,10 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
           }}
         />
       )}
+      <DocumentViewer
+        docId={viewingDocId}
+        onClose={() => setViewingDocId(null)}
+      />
     </div>
   );
 }
