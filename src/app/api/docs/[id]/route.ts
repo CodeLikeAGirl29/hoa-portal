@@ -66,7 +66,8 @@ export async function GET(
           hoaId: user.hoaId,
           action: "VIEW",
           userId: user.id,
-          detail: `Viewed document: ${doc.title}`, // ← add this
+          documentId: doc.id,
+          documentTitle: doc.title,
         },
       });
       return NextResponse.json({ error: "Access Denied" }, { status: 403 });
@@ -77,6 +78,8 @@ export async function GET(
         hoaId: user.hoaId,
         action: "UNAUTHORIZED_ACCESS_ATTEMPT",
         userId: user.id,
+        documentId: doc.id,
+        documentTitle: doc.title,
         detail: `Blocked access to "${doc.title}" (category: ${doc.category})`,
       },
     });

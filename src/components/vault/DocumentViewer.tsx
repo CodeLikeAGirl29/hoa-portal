@@ -50,7 +50,6 @@ export default function DocumentViewer({ docId, onClose }: Props) {
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
-        
         {/* Header */}
         <div className="flex items-start justify-between p-6 border-b border-gray-100">
           <div className="flex items-center gap-3 min-w-0">
@@ -59,7 +58,7 @@ export default function DocumentViewer({ docId, onClose }: Props) {
             </div>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-gray-900 truncate">
-                {loading ? "Loading…" : doc?.title ?? "Document"}
+                {loading ? "Loading…" : (doc?.title ?? "Document")}
               </h2>
               {doc && (
                 <p className="text-sm text-gray-500 mt-0.5">
@@ -75,7 +74,7 @@ export default function DocumentViewer({ docId, onClose }: Props) {
           </div>
           <div className="flex items-center gap-2 ml-4 shrink-0">
             {doc?.fileUrl && (
-              
+              <a
                 href={doc.fileUrl}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -109,7 +108,6 @@ export default function DocumentViewer({ docId, onClose }: Props) {
               <p className="text-sm font-medium">{error}</p>
               <button
                 onClick={() => {
-                  // re-trigger by resetting docId cycle — parent handles this
                   setError(null);
                   setLoading(true);
                   fetch(`/api/docs/${docId}`)
@@ -125,9 +123,7 @@ export default function DocumentViewer({ docId, onClose }: Props) {
             </div>
           )}
 
-          {doc && !loading && !error && (
-            <DocContent doc={doc} />
-          )}
+          {doc && !loading && !error && <DocContent doc={doc} />}
         </div>
       </div>
     </div>
@@ -167,7 +163,7 @@ function DocContent({ doc }: { doc: Document }) {
       <div className="flex flex-col items-center justify-center h-48 gap-4 text-gray-500">
         <FileText className="w-12 h-12 text-gray-300" />
         <p className="text-sm">This file type cannot be previewed inline.</p>
-        
+        <a
           href={doc.fileUrl}
           target="_blank"
           rel="noopener noreferrer"
@@ -196,13 +192,30 @@ function FormattedContent({ content }: { content: string }) {
     <div className="space-y-2 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
       {lines.map((line, i) => {
         if (line.startsWith("# "))
-          return <h1 key={i} className="text-xl font-bold text-gray-900 mt-4 mb-2">{line.slice(2)}</h1>;
+          return (
+            <h1 key={i} className="text-xl font-bold text-gray-900 mt-4 mb-2">
+              {line.slice(2)}
+            </h1>
+          );
         if (line.startsWith("## "))
-          return <h2 key={i} className="text-lg font-semibold text-gray-900 mt-3 mb-1">{line.slice(3)}</h2>;
+          return (
+            <h2
+              key={i}
+              className="text-lg font-semibold text-gray-900 mt-3 mb-1"
+            >
+              {line.slice(3)}
+            </h2>
+          );
         if (line.startsWith("### "))
-          return <h3 key={i} className="text-base font-semibold text-gray-800 mt-2 mb-1">{line.slice(4)}</h3>;
-        if (line.trim() === "")
-          return <div key={i} className="h-2" />;
+          return (
+            <h3
+              key={i}
+              className="text-base font-semibold text-gray-800 mt-2 mb-1"
+            >
+              {line.slice(4)}
+            </h3>
+          );
+        if (line.trim() === "") return <div key={i} className="h-2" />;
         return <p key={i}>{renderInline(line)}</p>;
       })}
     </div>
@@ -217,6 +230,6 @@ function renderInline(text: string) {
       <strong key={i}>{part.slice(2, -2)}</strong>
     ) : (
       <span key={i}>{part}</span>
-    )
+    ),
   );
 }

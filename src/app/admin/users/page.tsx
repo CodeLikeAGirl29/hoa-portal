@@ -50,7 +50,9 @@ function UserFormModal({
 }) {
   const [form, setForm] = useState<typeof EMPTY_FORM>({
     ...EMPTY_FORM,
-    ...(initial ? { ...initial, name: initial.name ?? "" } : {}),
+    ...(initial
+      ? { ...initial, name: initial.name ?? "", hoaId: initial.hoaId ?? "" }
+      : {}),
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");

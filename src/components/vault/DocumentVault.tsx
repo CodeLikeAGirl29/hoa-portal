@@ -196,10 +196,6 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
           }}
         />
       )}
-      <DocumentViewer
-        docId={viewingDocId}
-        onClose={() => setViewingDocId(null)}
-      />
     </div>
   );
 }

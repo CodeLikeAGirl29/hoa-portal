@@ -7,7 +7,7 @@ import { ComplianceFooter } from "@/components/layout/ComplianceFooter";
 import { DocumentVault } from "@/components/vault/DocumentVault";
 import { useState, useCallback } from "react";
 import type { HOADocument } from "@/types";
-import { DocumentViewer } from "@/components/vault/DocumentViewer";
+import DocumentViewer from "@/components/vault/DocumentViewer";
 import { DownloadToast } from "@/components/ui/DownloadToast";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { AlertBanner } from "@/components/ui";
@@ -46,12 +46,12 @@ function DocumentPortal() {
   const { role } = useAuth();
   const { log: logEvent } = useAuditLog();
 
-  const [viewingDoc, setViewingDoc] = useState<HOADocument | null>(null);
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
   const [downloadToast, setDownloadToast] = useState<HOADocument | null>(null);
 
   const handleView = useCallback(
     (doc: HOADocument) => {
-      setViewingDocId(doc.id); // Update state to store ID instead of object
+      setViewingDocId(doc.id); // Save ID instead of object
       logEvent("VIEW", { documentId: doc.id, documentTitle: doc.title });
     },
     [logEvent],
@@ -88,12 +88,10 @@ function DocumentPortal() {
       </main>
       <ComplianceFooter />
 
-      {viewingDoc && (
-        <DocumentViewer
-          document={viewingDoc}
-          onClose={() => setViewingDoc(null)}
-        />
-      )}
+      <DocumentViewer
+        docId={viewingDocId}
+        onClose={() => setViewingDocId(null)}
+      />
       {downloadToast && (
         <DownloadToast
           document={downloadToast}
