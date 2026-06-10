@@ -51,7 +51,7 @@ function DocumentPortal() {
 
   const handleView = useCallback(
     (doc: HOADocument) => {
-      setViewingDoc(doc);
+      setViewingDocId(doc.id); // Update state to store ID instead of object
       logEvent("VIEW", { documentId: doc.id, documentTitle: doc.title });
     },
     [logEvent],

@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   name: "",
   password: "",
   role: "resident",
+  hoaId: "",
 };
 
 const ROLE_OPTIONS = [
@@ -36,14 +37,21 @@ const ROLE_STYLES: Record<string, { bg: string; color: string }> = {
 // ─── Invite / Edit Modal ──────────────────────────────────────────────────
 function UserFormModal({
   initial,
+  hoas,
+  currentUserRole,
   onSave,
   onClose,
 }: {
   initial?: UserRecord;
+  hoas: { id: string; name: string }[];
+  currentUserRole: string;
   onSave: (data: typeof EMPTY_FORM) => Promise<void>;
   onClose: () => void;
 }) {
-  const [form, setForm] = useState<typeof EMPTY_FORM>({ ...EMPTY_FORM, ...(initial ? { ...initial, name: initial.name ?? "" } : {}) });
+  const [form, setForm] = useState<typeof EMPTY_FORM>({
+    ...EMPTY_FORM,
+    ...(initial ? { ...initial, name: initial.name ?? "" } : {}),
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const isEdit = !!initial?.id;
@@ -153,6 +161,26 @@ function UserFormModal({
             </select>
           </div>
 
+          {currentUserRole === "superadmin" && (
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                Assign to Community
+              </label>
+              <select
+                value={form.hoaId}
+                onChange={(e) => set("hoaId", e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-400 bg-white cursor-pointer"
+              >
+                <option value="">Global / No Community</option>
+                {hoas.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
               <span>⚠️</span> {error}
@@ -188,11 +216,13 @@ function UserFormModal({
 function UserRow({
   user,
   currentUserId,
+  currentUserRole,
   onEdit,
   onToggleActive,
 }: {
   user: UserRecord;
   currentUserId: string;
+  currentUserRole: string;
   onEdit: (u: UserRecord) => void;
   onToggleActive: (u: UserRecord) => void;
 }) {
@@ -240,6 +270,12 @@ function UserRow({
         {user.role}
       </span>
 
+      {currentUserRole === "superadmin" && (
+        <span className="text-xs text-gray-500 hidden lg:inline w-32 truncate font-medium">
+          {user.hoa?.name ?? "Global System"}
+        </span>
+      )}
+
       {/* Joined */}
       <span className="text-xs text-gray-300 hidden md:inline w-24 text-right flex-shrink-0">
         {new Date(user.createdAt).toLocaleDateString()}
@@ -276,6 +312,7 @@ export default function ManageUsersPage() {
   const accent = hoa?.accentColor ?? "#185FA5";
 
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [hoas, setHoas] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -291,7 +328,12 @@ export default function ManageUsersPage() {
 
   useEffect(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    if (role === "superadmin") {
+      fetch("/api/hoas")
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data) => setHoas(data));
+    }
+  }, [fetchUsers, role]);
 
   async function handleCreate(data: typeof EMPTY_FORM) {
     const res = await fetch("/api/users", {
@@ -443,44 +485,36 @@ export default function ManageUsersPage() {
             <div className="w-9 flex-shrink-0" />
             <div className="flex-1">Member</div>
             <div className="hidden sm:block w-24">Role</div>
+            {role === "superadmin" && (
+              <div className="hidden lg:block w-32">Community</div>
+            )}
             <div className="hidden md:block w-24 text-right">Joined</div>
             <div className="w-32 flex-shrink-0" />
           </div>
 
-          {loading ? (
-            <div className="py-16 text-center text-gray-300">
-              <div className="animate-spin text-2xl mb-3 inline-block">🔄</div>
-              <div className="text-sm">Loading members…</div>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-gray-300">
-              <div className="text-4xl mb-3">👥</div>
-              <div className="text-sm">
-                {search || roleFilter !== "all"
-                  ? "No members match your filters"
-                  : "No members yet"}
-              </div>
-            </div>
-          ) : (
+          {!loading &&
+            filtered.length > 0 &&
             filtered.map((u) => (
               <UserRow
                 key={u.id}
                 user={u}
                 currentUserId={currentUser.id}
+                currentUserRole={role}
                 onEdit={(u) => {
                   setEditing(u);
                   setShowModal(true);
                 }}
                 onToggleActive={handleToggleActive}
               />
-            ))
-          )}
+            ))}
         </div>
       </div>
 
       {showModal && (
         <UserFormModal
           initial={editing ?? undefined}
+          hoas={hoas}
+          currentUserRole={role}
           onSave={editing ? handleEdit : handleCreate}
           onClose={() => {
             setShowModal(false);

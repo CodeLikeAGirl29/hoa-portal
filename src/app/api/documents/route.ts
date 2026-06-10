@@ -3,64 +3,75 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmail, newDocumentEmailHtml } from "@/lib/email";
+import { redactDocument } from "@/lib/redaction";
 
 export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const sessionUser = session?.user as any;
-  const role = sessionUser?.role ?? "public";
-  const hoaId = sessionUser?.hoaId as string | null;
+  try {
+    const session = await getServerSession(authOptions);
+    const sessionUser = session?.user as any;
+    const role = sessionUser?.role ?? "public";
+    const hoaId = sessionUser?.hoaId as string | null;
 
-  const { searchParams } = new URL(req.url);
-  const search = searchParams.get("search")?.toLowerCase() ?? "";
-  const category = searchParams.get("category") ?? "all";
-  const targetHoaId = hoaId ?? searchParams.get("hoaId");
+    const { searchParams } = new URL(req.url);
+    const search = searchParams.get("search")?.toLowerCase() ?? "";
+    const category = searchParams.get("category") ?? "all";
+    const targetHoaId = hoaId ?? searchParams.get("hoaId");
 
-  if (!targetHoaId) {
-    return NextResponse.json({ error: "No HOA context." }, { status: 400 });
-  }
+    if (!targetHoaId) {
+      return NextResponse.json(
+        { error: "No HOA context provided." },
+        { status: 400 }
+      );
+    }
 
-  const where: Record<string, unknown> = { hoaId: targetHoaId };
-  if (role === "public") where.isPublic = true;
-  else if (role === "resident") where.isAccessibleToResidents = true;
-  if (category !== "all") where.category = category;
+    const where: Record<string, unknown> = { hoaId: targetHoaId };
+    if (role === "public") where.isPublic = true;
+    else if (role === "resident") where.isAccessibleToResidents = true;
+    if (category !== "all") where.category = category;
 
-  const docs = await prisma.document.findMany({
-    where,
-    orderBy: [{ category: "asc" }, { uploadDate: "desc" }],
-  });
+    const docs = await prisma.document.findMany({
+      where,
+      orderBy: [{ category: "asc" }, { uploadDate: "desc" }],
+    });
 
-  const filtered = search
-    ? docs.filter(
-        (d) =>
-          d.title.toLowerCase().includes(search) ||
-          d.category.toLowerCase().includes(search)
+    const filtered = search
+      ? docs.filter(
+          (d) =>
+            d.title.toLowerCase().includes(search) ||
+            d.category.toLowerCase().includes(search)
+        )
+      : docs;
+
+    const results = filtered.map((doc) =>
+      redactDocument(
+        {
+          id: doc.id,
+          hoaId: doc.hoaId,
+          title: doc.title,
+          category: doc.category as any,
+          content: doc.content,
+          isPublic: doc.isPublic,
+          isAccessibleToResidents: doc.isAccessibleToResidents,
+          requiresLogin: doc.requiresLogin,
+          uploadDate: doc.uploadDate.toISOString().split("T")[0],
+          lastModified: doc.lastModified.toISOString().split("T")[0],
+          fileSize: doc.fileSize,
+          pages: doc.pages,
+          uploadedBy: doc.uploadedBy,
+          isMandatoryRecord: doc.isMandatoryRecord,
+        },
+        role as any
       )
-    : docs;
+    );
 
-  const { redactDocument } = await import("@/lib/redaction");
-  const results = filtered.map((doc) =>
-    redactDocument(
-      {
-        id: doc.id,
-        hoaId: doc.hoaId,
-        title: doc.title,
-        category: doc.category as any,
-        content: doc.content,
-        isPublic: doc.isPublic,
-        isAccessibleToResidents: doc.isAccessibleToResidents,
-        requiresLogin: doc.requiresLogin,
-        uploadDate: doc.uploadDate.toISOString().split("T")[0],
-        lastModified: doc.lastModified.toISOString().split("T")[0],
-        fileSize: doc.fileSize,
-        pages: doc.pages,
-        uploadedBy: doc.uploadedBy,
-        isMandatoryRecord: doc.isMandatoryRecord,
-      },
-      role as any
-    )
-  );
-
-  return NextResponse.json(results);
+    return NextResponse.json(results);
+  } catch (error) {
+    console.error("GET /api/documents error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(req: Request) {

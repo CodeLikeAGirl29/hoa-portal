@@ -30,7 +30,7 @@ function RedactionWarning({ fields }: RedactionWarningProps) {
 
 interface DocumentCardProps {
   document: RedactedDocument;
-  onView: (doc: HOADocument) => void;
+  onView: (id: string) => void;
   onDownload: (doc: HOADocument) => void;
   onEdit?: (doc: RedactedDocument) => void;
   onDelete?: (doc: RedactedDocument) => void;
@@ -99,7 +99,7 @@ export function DocumentCard({
           variant="primary"
           size="sm"
           className="flex-1"
-          onClick={() => onView(doc)}
+          onClick={() => onView(doc.id)}
         >
           View
         </Button>

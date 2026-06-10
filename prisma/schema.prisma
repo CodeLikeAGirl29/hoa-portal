@@ -44,10 +44,12 @@ model User {
 }
 
 model Document {
-  id                     String   @id @default(uuid())
+  id                     String   @id @default(cuid())
   hoaId                  String
   title                  String
-  content                String
+  content                String?
+  fileUrl                String?
+  fileType               String?
   category               String
   isPublic               Boolean  @default(false)
   isAccessibleToResidents Boolean @default(true)
@@ -59,6 +61,7 @@ model Document {
   uploadDate             DateTime @default(now())
   lastModified           DateTime @updatedAt
   createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   hoa HOA @relation(fields: [hoaId], references: [id])
 }

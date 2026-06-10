@@ -1,136 +1,222 @@
+// src/components/vault/DocumentViewer.tsx
 "use client";
 
-import { useEffect } from "react";
-import type { HOADocument } from "@/types";
-import { CategoryBadge, Button } from "@/components/ui";
-import { REDACTED_FIELD_LABELS, redactDocument } from "@/lib/redaction";
-import { useAuth } from "@/hooks/useAuth";
-import { useAuditLog } from "@/hooks/useAuditLog";
+import { useEffect, useState } from "react";
+import { X, Download, FileText, AlertCircle, Loader2 } from "lucide-react";
 
-interface DocumentViewerProps {
-  document: HOADocument;
+interface Document {
+  id: string;
+  title: string;
+  category: string;
+  content?: string | null;
+  fileUrl?: string | null;
+  fileType?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface Props {
+  docId: string | null;
   onClose: () => void;
 }
 
-export function DocumentViewer({
-  document: doc,
-  onClose,
-}: DocumentViewerProps) {
-  const { role } = useAuth();
-  const { log } = useAuditLog();
-  const redacted = redactDocument(doc, role);
+export default function DocumentViewer({ docId, onClose }: Props) {
+  const [doc, setDoc] = useState<Document | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    log("VIEW", { documentId: doc.id, documentTitle: doc.title });
+    if (!docId) return;
 
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [doc.id, doc.title, log, onClose]);
+    setLoading(true);
+    setError(null);
+    setDoc(null);
+
+    fetch(`/api/docs/${docId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Failed to load document (${res.status})`);
+        return res.json();
+      })
+      .then(({ doc }) => setDoc(doc))
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [docId]);
+
+  if (!docId) return null;
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => e.target === e.currentTarget && onClose()}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="doc-viewer-title"
     >
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-        {/* Sticky header */}
-        <div className="flex justify-between items-start px-6 py-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl z-10">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h2
-                id="doc-viewer-title"
-                className="m-0 text-base font-bold text-gray-900"
-              >
-                {doc.title}
+      <div className="relative w-full max-w-3xl max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
+        
+        {/* Header */}
+        <div className="flex items-start justify-between p-6 border-b border-gray-100">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 rounded-lg bg-blue-50 shrink-0">
+              <FileText className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-lg font-semibold text-gray-900 truncate">
+                {loading ? "Loading…" : doc?.title ?? "Document"}
               </h2>
-              <CategoryBadge category={doc.category} />
+              {doc && (
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {doc.category} · Updated{" "}
+                  {new Date(doc.updatedAt).toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              )}
             </div>
-            <p className="text-xs text-gray-400 m-0">
-              {doc.pages} pages · {doc.fileSize} · Last modified{" "}
-              {doc.lastModified}
-            </p>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors cursor-pointer border-0 bg-transparent"
-            aria-label="Close document viewer"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Official record banner */}
-        <div
-          className="flex items-center justify-between px-6 py-2"
-          style={{ background: "linear-gradient(135deg, #185FA5, #0C447C)" }}
-        >
-          <span className="text-white text-[11px] font-bold tracking-widest uppercase">
-            ⚓ Official Record — Pelican Bay HOA
-          </span>
-          <span className="text-white/60 text-[11px]">
-            F.S. 720.303 Compliant
-          </span>
-        </div>
-
-        {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 p-6 space-y-4">
-          {role !== "admin" && (
-            <div
-              className="rounded-xl px-4 py-3 text-sm"
-              style={{
-                background: "#FAEEDA",
-                border: "1px solid #EF9F27",
-                color: "#854F0B",
-              }}
+          <div className="flex items-center gap-2 ml-4 shrink-0">
+            {doc?.fileUrl && (
+              
+                href={doc.fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </a>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <strong>Redaction Notice:</strong> This document has been
-              automatically redacted per F.S. 720 and your access level. SSNs,
-              financial details, account numbers, and medical information are
-              masked.
-            </div>
-          )}
-
-          {redacted.wasRedacted && redacted.redactedFields.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {redacted.redactedFields.map((f) => (
-                <span
-                  key={f}
-                  className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: "#FAECE7", color: "#712B13" }}
-                >
-                  🔒 {REDACTED_FIELD_LABELS[f]} redacted
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div
-            className="rounded-xl p-5 text-sm leading-relaxed text-gray-700 border border-gray-100 whitespace-pre-wrap"
-            style={{
-              background: "#fdfcfa",
-              fontFamily: "Georgia, 'Times New Roman', serif",
-            }}
-          >
-            {redacted.content}
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
-          <span className="text-[11px] text-gray-400">
-            Accessed {new Date().toLocaleString()} · Logged to audit trail
-          </span>
-          <Button variant="primary" size="sm" onClick={onClose}>
-            Close
-          </Button>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading && (
+            <div className="flex flex-col items-center justify-center h-48 gap-3 text-gray-400">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <p className="text-sm">Loading document…</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex flex-col items-center justify-center h-48 gap-3 text-red-500">
+              <AlertCircle className="w-8 h-8" />
+              <p className="text-sm font-medium">{error}</p>
+              <button
+                onClick={() => {
+                  // re-trigger by resetting docId cycle — parent handles this
+                  setError(null);
+                  setLoading(true);
+                  fetch(`/api/docs/${docId}`)
+                    .then((r) => r.json())
+                    .then(({ doc }) => setDoc(doc))
+                    .catch((e) => setError(e.message))
+                    .finally(() => setLoading(false));
+                }}
+                className="text-sm underline hover:no-underline"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+
+          {doc && !loading && !error && (
+            <DocContent doc={doc} />
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Content renderer — picks strategy based on fileType / content ────────────
+
+function DocContent({ doc }: { doc: Document }) {
+  const isPdf =
+    doc.fileType === "application/pdf" ||
+    doc.fileUrl?.toLowerCase().endsWith(".pdf");
+
+  // PDF: render in iframe
+  if (isPdf && doc.fileUrl) {
+    return (
+      <iframe
+        src={doc.fileUrl}
+        className="w-full h-[60vh] rounded-lg border border-gray-200"
+        title={doc.title}
+      />
+    );
+  }
+
+  // Text/markdown content stored in DB
+  if (doc.content) {
+    return (
+      <div className="prose prose-sm prose-gray max-w-none">
+        <FormattedContent content={doc.content} />
+      </div>
+    );
+  }
+
+  // File URL but not PDF (e.g. Word, image) — link out
+  if (doc.fileUrl) {
+    return (
+      <div className="flex flex-col items-center justify-center h-48 gap-4 text-gray-500">
+        <FileText className="w-12 h-12 text-gray-300" />
+        <p className="text-sm">This file type cannot be previewed inline.</p>
+        
+          href={doc.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          Open file
+        </a>
+      </div>
+    );
+  }
+
+  // Nothing to show
+  return (
+    <div className="flex flex-col items-center justify-center h-48 gap-3 text-gray-400">
+      <FileText className="w-10 h-10 text-gray-200" />
+      <p className="text-sm">No content available for this document.</p>
+    </div>
+  );
+}
+
+// Simple formatter: preserves line breaks, bolds **text**, renders headings
+function FormattedContent({ content }: { content: string }) {
+  const lines = content.split("\n");
+
+  return (
+    <div className="space-y-2 text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+      {lines.map((line, i) => {
+        if (line.startsWith("# "))
+          return <h1 key={i} className="text-xl font-bold text-gray-900 mt-4 mb-2">{line.slice(2)}</h1>;
+        if (line.startsWith("## "))
+          return <h2 key={i} className="text-lg font-semibold text-gray-900 mt-3 mb-1">{line.slice(3)}</h2>;
+        if (line.startsWith("### "))
+          return <h3 key={i} className="text-base font-semibold text-gray-800 mt-2 mb-1">{line.slice(4)}</h3>;
+        if (line.trim() === "")
+          return <div key={i} className="h-2" />;
+        return <p key={i}>{renderInline(line)}</p>;
+      })}
+    </div>
+  );
+}
+
+function renderInline(text: string) {
+  // Handle **bold**
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      <span key={i}>{part}</span>
+    )
   );
 }

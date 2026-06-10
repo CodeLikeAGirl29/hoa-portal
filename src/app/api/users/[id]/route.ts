@@ -22,9 +22,9 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const { name, email, password, role, active } = body;
+  // Extract hoaId from the incoming body
+  const { name, email, password, role, active, hoaId } = body;
 
-  // Verify the target user belongs to this admin's HOA
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -40,6 +40,11 @@ export async function PATCH(
   if (active !== undefined) updateData.active = active;
   if (password !== undefined)
     updateData.password = await bcrypt.hash(password, 10);
+
+  // Allow superadmins to reassign the user's HOA
+  if (hoaId !== undefined && sessionUser.role === "superadmin") {
+    updateData.hoaId = hoaId === "" ? null : hoaId;
+  }
 
   const updated = await prisma.user.update({
     where: { id },

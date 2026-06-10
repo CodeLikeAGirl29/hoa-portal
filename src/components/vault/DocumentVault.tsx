@@ -16,6 +16,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
   const { role, hoa } = useAuth();
   const accent = hoa?.accentColor ?? "#185FA5";
   const isAdmin = role === "admin" || role === "superadmin";
+  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
 
   const [documents, setDocuments] = useState<RedactedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,19 +33,31 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
       const params = new URLSearchParams();
       if (search) params.set("search", search);
       if (filterCat !== "all") params.set("category", filterCat);
+      if (hoa?.id) params.set("hoaId", hoa.id); // Ensures superadmins/public pass the context
 
       const res = await fetch(`/api/documents?${params}`);
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response:", text);
+        throw new Error(
+          "Server returned an invalid format. Please check the network log.",
+        );
+      }
+
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error ?? "Failed to load documents.");
       }
+
       setDocuments(await res.json());
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [search, filterCat]);
+  }, [search, filterCat, hoa?.id]);
 
   useEffect(() => {
     fetchDocuments();
@@ -141,7 +154,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
             <DocumentCard
               key={doc.id}
               document={doc}
-              onView={onView}
+              onView={(id) => setViewingDocId(id)}
               onDownload={onDownload}
               onEdit={
                 isAdmin
@@ -183,6 +196,10 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
           }}
         />
       )}
+      <DocumentViewer
+        docId={viewingDocId}
+        onClose={() => setViewingDocId(null)}
+      />
     </div>
   );
 }
