@@ -7,9 +7,8 @@ import { ComplianceFooter } from "@/components/layout/ComplianceFooter";
 import { DocumentVault } from "@/components/vault/DocumentVault";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { useState, useCallback } from "react";
-import type { HOADocument } from "@/types";
+import type { RedactedDocument } from "@/types";
 import { DocumentViewer } from "@/components/vault/DocumentViewer";
-import { DownloadToast } from "@/components/ui/DownloadToast";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { AlertBanner } from "@/components/ui";
 import { StatsBar } from "@/components/layout/StatsBar";
@@ -48,11 +47,11 @@ function DocumentPortal() {
   const { role } = useAuth();
   const { log: logEvent } = useAuditLog();
 
-  const [viewingDoc, setViewingDoc] = useState<HOADocument | null>(null);
-  const [downloadToast, setDownloadToast] = useState<HOADocument | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<RedactedDocument | null>(null);
+  const [downloadDoc, setDownloadDoc] = useState<RedactedDocument | null>(null);
 
   const handleView = useCallback(
-    (doc: HOADocument) => {
+    (doc: RedactedDocument) => {
       setViewingDoc(doc);
       logEvent("VIEW", { documentId: doc.id, documentTitle: doc.title });
     },
@@ -60,8 +59,8 @@ function DocumentPortal() {
   );
 
   const handleDownload = useCallback(
-    (doc: HOADocument) => {
-      setDownloadToast(doc);
+    (doc: RedactedDocument) => {
+      setDownloadDoc(doc);
       logEvent("DOWNLOAD", { documentId: doc.id, documentTitle: doc.title });
     },
     [logEvent],
@@ -94,18 +93,10 @@ function DocumentPortal() {
       </main>
       <ComplianceFooter />
 
-      {viewingDoc && (
-        <DocumentViewer
-          document={viewingDoc}
-          onClose={() => setViewingDoc(null)}
-        />
-      )}
-      {downloadToast && (
-        <DownloadToast
-          document={downloadToast}
-          onClose={() => setDownloadToast(null)}
-        />
-      )}
+      <DocumentViewer
+        document={viewingDoc}
+        onClose={() => setViewingDoc(null)}
+      />
     </div>
   );
 }
