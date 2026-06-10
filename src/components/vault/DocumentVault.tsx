@@ -4,11 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentUploadModal } from "./DocumentUploadModal";
-import type { HOADocument } from "@/types";
+import type { HOADocument, RedactedDocument } from "@/types";
 
 interface DocumentVaultProps {
-  onView: (doc: HOADocument) => void;
-  onDownload: (doc: HOADocument) => void;
+  onView: (doc: HOADocument | RedactedDocument) => void;
+  onDownload: (doc: HOADocument | RedactedDocument) => void;
 }
 
 const CATEGORIES = [
@@ -25,7 +25,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "superadmin";
 
-  const [docs, setDocs] = useState<HOADocument[]>([]);
+  const [docs, setDocs] = useState<RedactedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -147,7 +147,7 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
       {showUpload && (
         <DocumentUploadModal
           onClose={() => setShowUpload(false)}
-          onUploaded={() => {
+          onSuccess={() => {
             setShowUpload(false);
             fetchDocs();
           }}

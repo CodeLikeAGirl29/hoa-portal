@@ -47,7 +47,7 @@ export default function ProfilePage() {
     ])
       .then(([auditData, docs]) => {
         if (auditData) setActivity(auditData.entries ?? []);
-        if (docs) setDocCount(docs.length);
+        if (docs) setDocCount(Array.isArray(docs) ? docs.length : 0);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -56,7 +56,7 @@ export default function ProfilePage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-8 py-10 space-y-6">
+      <main className="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-8 py-10 space-y-6">
         {/* Profile hero */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <div
@@ -72,12 +72,12 @@ export default function ProfilePage() {
                 background: `linear-gradient(135deg, ${accent}, ${accentDark})`,
               }}
             >
-              {(user.displayName || user.email)[0].toUpperCase()}
+              {(user?.displayName || user?.email || "?")[0].toUpperCase()}
             </div>
             <h1 className="text-xl font-bold text-gray-900 m-0">
-              {user.displayName}
+              {user?.displayName}
             </h1>
-            <p className="text-sm text-gray-400 m-0 mt-0.5">{user.email}</p>
+            <p className="text-sm text-gray-400 m-0 mt-0.5">{user?.email}</p>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <span
                 className="text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide"
@@ -85,11 +85,7 @@ export default function ProfilePage() {
               >
                 {role}
               </span>
-              {hoa && (
-                <span className="text-xs text-gray-400">
-                  {hoa.name} · {hoa.city}, {hoa.state}
-                </span>
-              )}
+              {hoa && <span className="text-xs text-gray-400">{hoa.name}</span>}
             </div>
           </div>
         </div>
@@ -122,47 +118,16 @@ export default function ProfilePage() {
                       .trim()
                       .split(/\s+/)
                       .slice(0, 2)
-                      .map((w) => w[0])
+                      .map((w: string) => w[0])
                       .join("")}
                   </div>
                 )}
                 <div>
                   <div className="font-bold text-gray-900">{hoa.name}</div>
-                  {hoa.city && (
-                    <div className="text-sm text-gray-400">
-                      📍 {hoa.city}, {hoa.state} {hoa.zip}
-                    </div>
-                  )}
+                  <div className="text-sm text-gray-400">
+                    Florida HOA Portal
+                  </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {hoa.phone && (
-                  <a
-                    href={`tel:${hoa.phone}`}
-                    className="flex items-center gap-2 text-gray-500 no-underline hover:text-gray-700"
-                  >
-                    <span>📞</span> {hoa.phone}
-                  </a>
-                )}
-                {hoa.email && (
-                  <a
-                    href={`mailto:${hoa.email}`}
-                    className="flex items-center gap-2 text-gray-500 no-underline hover:text-gray-700"
-                  >
-                    <span>✉️</span> {hoa.email}
-                  </a>
-                )}
-                {hoa.website && (
-                  <a
-                    href={hoa.website}
-                    target="_blank"
-                    className="flex items-center gap-2 col-span-2 no-underline hover:text-gray-700"
-                    style={{ color: accent }}
-                  >
-                    <span>🌐</span> {hoa.website}
-                  </a>
-                )}
               </div>
 
               {/* Quick stats */}
@@ -196,7 +161,7 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3 p-4">
             {[
               {
-                href: "/",
+                href: "/documents",
                 icon: "📁",
                 label: "Document Vault",
                 desc: "Browse HOA documents",
@@ -207,16 +172,6 @@ export default function ProfilePage() {
                 label: "Change Password",
                 desc: "Update your credentials",
               },
-              ...(hoa
-                ? [
-                    {
-                      href: `/hoa/${hoa.slug}`,
-                      icon: "🌐",
-                      label: "Public Page",
-                      desc: "View public records",
-                    },
-                  ]
-                : []),
             ].map((l) => (
               <Link
                 key={l.href}
@@ -235,7 +190,7 @@ export default function ProfilePage() {
 
         {/* Recent activity */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+          <div className="px-6 py-4 border-b border-gray-50">
             <h2 className="text-sm font-bold text-gray-900 m-0">
               Recent Activity
             </h2>
