@@ -32,9 +32,12 @@ export default withAuth(
         if (
           pathname.startsWith("/login") ||
           pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/documents") || // Added: Vault API
-          pathname.startsWith("/api/docs") || // Added: Document Viewer API
-          pathname.startsWith("/hoa") || // Added: Public HOA Landing Pages
+          pathname.startsWith("/api/documents") ||
+          pathname.startsWith("/api/docs") ||
+          pathname.startsWith("/api/public") ||
+          pathname.startsWith("/api/announcements") ||
+          pathname.startsWith("/hoa") ||
+          pathname.startsWith("/documents") || // ← fix: allow /documents page
           pathname.startsWith("/_next") ||
           pathname.startsWith("/favicon") ||
           pathname === "/"
