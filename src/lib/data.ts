@@ -7,7 +7,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     title: "Community Bylaws 2024",
     category: "governing",
     content:
-      "These bylaws govern the Pelican Bay HOA. All residents must comply with F.S. 720.303. Monthly dues are $350. The board consists of five elected members serving two-year staggered terms. Contact board@pelicanbayhoa.org for questions regarding enforcement.",
+      "These bylaws govern the Fair Oaks HOA. All residents must comply with F.S. 720.303. Monthly dues are $350. The board consists of five elected members serving two-year staggered terms. Contact board@pelicanbayhoa.org for questions regarding enforcement.",
     isPublic: true,
     isAccessibleToResidents: true,
     requiresLogin: false,
@@ -24,7 +24,7 @@ export const MOCK_DOCUMENTS: HOADocument[] = [
     title: "Declaration of Covenants (CC&Rs)",
     category: "governing",
     content:
-      "This Declaration establishes the rights and responsibilities of all property owners within Pelican Bay HOA, established under Florida Statute 720. Restrictions include architectural standards, landscaping requirements, and pet policies.",
+      "This Declaration establishes the rights and responsibilities of all property owners within Fair Oaks HOA, established under Florida Statute 720. Restrictions include architectural standards, landscaping requirements, and pet policies.",
     isPublic: true,
     isAccessibleToResidents: true,
     requiresLogin: false,
@@ -185,7 +185,8 @@ export const CHECKLIST_ITEMS = [
   {
     id: 2,
     label: "Configure Firestore Rules to enforce RBAC at database level",
-    description: "Rules should mirror ACCESS_MATRIX and never rely solely on client filtering",
+    description:
+      "Rules should mirror ACCESS_MATRIX and never rely solely on client filtering",
     done: true,
     priority: "high" as const,
     statute: "F.S. 720.303",

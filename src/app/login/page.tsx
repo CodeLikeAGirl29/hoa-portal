@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 const DEMO_ACCOUNTS = [
   {
-    label: "Pelican Bay Admin",
+    label: "Fair Oaks Admin",
     email: "admin@pelicanbayhoa.org",
     password: "admin123",
     role: "Admin",
@@ -14,7 +14,7 @@ const DEMO_ACCOUNTS = [
     icon: "🏖️",
   },
   {
-    label: "Pelican Bay Resident",
+    label: "Fair Oaks Resident",
     email: "resident@pelicanbayhoa.org",
     password: "resident123",
     role: "Resident",

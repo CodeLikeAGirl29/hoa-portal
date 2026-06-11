@@ -11,21 +11,37 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding Florida HOA Portal...");
 
-  const pelicanBay = await prisma.hOA.upsert({
-    where: { slug: "pelican-bay" },
-    update: {},
-    create: {
-      name: "Pelican Bay HOA",
-      slug: "pelican-bay",
+  const fairOaks = await prisma.hOA.upsert({
+    where: { slug: "fair-oaks" },
+    update: {
+      name: "Fair Oaks HOA",
       accentColor: "#185FA5",
-      address: "1 Pelican Bay Blvd",
+      address: "1 Fair Oaks Blvd",
       city: "Naples",
       state: "FL",
       zip: "34108",
       phone: "(239) 555-0100",
-      email: "board@pelicanbayhoa.org",
+      email: "board@fairoakshoa.org",
+    },
+    create: {
+      name: "Fair Oaks HOA",
+      slug: "fair-oaks",
+      accentColor: "#185FA5",
+      address: "1 Fair Oaks Blvd",
+      city: "Naples",
+      state: "FL",
+      zip: "34108",
+      phone: "(239) 555-0100",
+      email: "board@fairoakshoa.org",
     },
   });
+
+  // Clean up old pelican-bay slug if it exists
+  await prisma.hOA
+    .deleteMany({
+      where: { slug: "pelican-bay" },
+    })
+    .catch(() => {});
 
   const palmGrove = await prisma.hOA.upsert({
     where: { slug: "palm-grove" },
@@ -61,30 +77,47 @@ async function main() {
 
   const hash = async (pw: string) => bcrypt.hash(pw, 10);
 
+  // Fair Oaks users
   await prisma.user.upsert({
-    where: { email: "admin@pelicanbayhoa.org" },
-    update: {},
+    where: { email: "admin@fairoakshoa.org" },
+    update: { hoaId: fairOaks.id },
     create: {
-      email: "admin@pelicanbayhoa.org",
+      email: "admin@fairoakshoa.org",
       name: "Board Administrator",
       password: await hash("admin123"),
       role: "admin",
-      hoaId: pelicanBay.id,
+      hoaId: fairOaks.id,
     },
   });
 
   await prisma.user.upsert({
-    where: { email: "resident@pelicanbayhoa.org" },
-    update: {},
+    where: { email: "resident@fairoakshoa.org" },
+    update: { hoaId: fairOaks.id },
     create: {
-      email: "resident@pelicanbayhoa.org",
+      email: "resident@fairoakshoa.org",
       name: "J. Martinez",
       password: await hash("resident123"),
       role: "resident",
-      hoaId: pelicanBay.id,
+      hoaId: fairOaks.id,
     },
   });
 
+  // Update old pelican bay users to new email if they exist
+  await prisma.user
+    .updateMany({
+      where: { email: "admin@pelicanbayhoa.org" },
+      data: { email: "admin@fairoakshoa.org", hoaId: fairOaks.id },
+    })
+    .catch(() => {});
+
+  await prisma.user
+    .updateMany({
+      where: { email: "resident@pelicanbayhoa.org" },
+      data: { email: "resident@fairoakshoa.org", hoaId: fairOaks.id },
+    })
+    .catch(() => {});
+
+  // Palm Grove users
   await prisma.user.upsert({
     where: { email: "admin@palmgrovehoa.org" },
     update: {},
@@ -109,6 +142,7 @@ async function main() {
     },
   });
 
+  // Sunset Ridge admin
   await prisma.user.upsert({
     where: { email: "admin@sunsetridgehoa.com" },
     update: {},
@@ -121,6 +155,7 @@ async function main() {
     },
   });
 
+  // Super admin
   await prisma.user.upsert({
     where: { email: "superadmin@floridahoaportal.com" },
     update: {},
@@ -133,16 +168,17 @@ async function main() {
     },
   });
 
+  // Fair Oaks documents
   await prisma.document.upsert({
-    where: { id: "doc-pb-001" },
+    where: { id: "doc-fo-001" },
     update: {},
     create: {
-      id: "doc-pb-001",
-      hoaId: pelicanBay.id,
+      id: "doc-fo-001",
+      hoaId: fairOaks.id,
       title: "Community Bylaws 2024",
       category: "governing",
       content:
-        "These bylaws govern the Pelican Bay HOA. All residents must comply with F.S. 720.303. Monthly dues are $350.",
+        "These bylaws govern the Fair Oaks HOA. All residents must comply with F.S. 720.303. Monthly dues are $350.",
       isPublic: true,
       isAccessibleToResidents: true,
       requiresLogin: false,
@@ -153,11 +189,11 @@ async function main() {
   });
 
   await prisma.document.upsert({
-    where: { id: "doc-pb-002" },
+    where: { id: "doc-fo-002" },
     update: {},
     create: {
-      id: "doc-pb-002",
-      hoaId: pelicanBay.id,
+      id: "doc-fo-002",
+      hoaId: fairOaks.id,
       title: "Q1 2025 Budget Summary",
       category: "financial",
       content:
@@ -171,6 +207,7 @@ async function main() {
     },
   });
 
+  // Palm Grove documents
   await prisma.document.upsert({
     where: { id: "doc-pg-001" },
     update: {},
@@ -192,13 +229,12 @@ async function main() {
 
   console.log("✅ Seed complete.");
   console.log("\n🔑 Demo credentials:");
-  console.log("  Pelican Bay admin:    admin@pelicanbayhoa.org / admin123");
+  console.log("  Fair Oaks admin:    admin@fairoakshoa.org / admin123");
+  console.log("  Fair Oaks resident: resident@fairoakshoa.org / resident123");
+  console.log("  Palm Grove admin:   admin@palmgrovehoa.org / admin123");
+  console.log("  Sunset Ridge admin: admin@sunsetridgehoa.com / admin123");
   console.log(
-    "  Pelican Bay resident: resident@pelicanbayhoa.org / resident123"
-  );
-  console.log("  Palm Grove admin:     admin@palmgrovehoa.org / admin123");
-  console.log(
-    "  Superadmin:           superadmin@floridahoaportal.com / super123"
+    "  Superadmin:         superadmin@floridahoaportal.com / super123"
   );
 }
 
