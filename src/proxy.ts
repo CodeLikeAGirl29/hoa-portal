@@ -7,17 +7,17 @@ export default withAuth(
     const token = req.nextauth.token as any;
     const role = token?.role ?? "public";
 
-    // Superadmin-only routes
-    if (
-      pathname.startsWith("/admin") &&
-      role !== "superadmin" &&
-      role !== "admin"
-    ) {
+    // /admin/hoas is superadmin-only
+    if (pathname.startsWith("/admin/hoas") && role !== "superadmin") {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
-    // Superadmin-only: /admin/hoas
-    if (pathname.startsWith("/admin/hoas") && role !== "superadmin") {
+    // All other /admin/* routes require admin OR superadmin
+    if (
+      pathname.startsWith("/admin") &&
+      role !== "admin" &&
+      role !== "superadmin"
+    ) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
@@ -28,31 +28,34 @@ export default withAuth(
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
 
-        // Always public (Let the API routes handle their own security)
+        // Public routes — allowed with or without a token
+        const publicPaths = [
+          "/login",
+          "/api/auth",
+          "/api/documents",
+          "/api/docs",
+          "/api/public",
+          "/api/announcements",
+          "/hoa",
+          "/documents",
+          "/_next",
+          "/favicon",
+        ];
         if (
-          pathname.startsWith("/login") ||
-          pathname.startsWith("/api/auth") ||
-          pathname.startsWith("/api/documents") ||
-          pathname.startsWith("/api/docs") ||
-          pathname.startsWith("/api/public") ||
-          pathname.startsWith("/api/announcements") ||
-          pathname.startsWith("/hoa") ||
-          pathname.startsWith("/documents") || // ← fix: allow /documents page
-          pathname.startsWith("/_next") ||
-          pathname.startsWith("/favicon") ||
-          pathname === "/"
+          pathname === "/" ||
+          publicPaths.some((p) => pathname.startsWith(p))
         ) {
-          return true; // Allows access with OR without a token
+          return true;
         }
 
-        // Everything else requires an active session token
+        // Everything else requires a valid token
         return !!token;
       },
     },
+    secret: process.env.NEXTAUTH_SECRET,
   }
 );
 
-// We can simplify the matcher now that the callback handles the specific exclusions
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
