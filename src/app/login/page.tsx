@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 const DEMO_ACCOUNTS = [
   {
     label: "Fair Oaks Admin",
-    email: "admin@pelicanbayhoa.org",
+    email: "admin@fairoakshoa.org",
     password: "admin123",
     role: "Admin",
     color: "#185FA5",
@@ -15,7 +15,7 @@ const DEMO_ACCOUNTS = [
   },
   {
     label: "Fair Oaks Resident",
-    email: "resident@pelicanbayhoa.org",
+    email: "resident@fairoakshoa.org",
     password: "resident123",
     role: "Resident",
     color: "#185FA5",
