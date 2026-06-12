@@ -25,6 +25,11 @@ const ACTION_STYLES: Record<
   CREATE: { bg: "#EAF3DE", color: "#3B6D11", icon: "➕" },
   UPDATE: { bg: "#E6F1FB", color: "#185FA5", icon: "✏️" },
   DELETE: { bg: "#FAECE7", color: "#712B13", icon: "🗑" },
+  UNAUTHORIZED_ACCESS_ATTEMPT: {
+    bg: "#FEE2E2",
+    color: "#B91C1C",
+    icon: "🚫",
+  },
 };
 
 const PAGE_SIZE = 20;
@@ -68,6 +73,7 @@ export function AuditTrailPanel() {
     "CREATE",
     "UPDATE",
     "DELETE",
+    "UNAUTHORIZED_ACCESS_ATTEMPT",
   ];
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
@@ -95,7 +101,11 @@ export function AuditTrailPanel() {
                     actionFilter === a ? (s?.color ?? "#185FA5") : "#9ca3af",
                 }}
               >
-                {a === "all" ? "All" : `${s?.icon} ${a}`}
+                {a === "all"
+                  ? "All"
+                  : a === "UNAUTHORIZED_ACCESS_ATTEMPT"
+                    ? `${s?.icon} Blocked`
+                    : `${s?.icon} ${a}`}
               </button>
             );
           })}
