@@ -81,9 +81,19 @@ export function AuditTrailPanel() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-        <p className="text-sm text-gray-500 m-0">
-          {total} total entries · Server-side immutable log
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-500 m-0">
+            {total} total entries · Server-side immutable log
+          </p>
+          <a
+            href="/api/audit/export"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 no-underline transition-all"
+          >
+            ⬇ Export CSV
+          </a>
+        </div>
 
         {/* Action filter */}
         <div className="flex gap-1.5 flex-wrap">

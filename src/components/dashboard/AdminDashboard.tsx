@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 
 interface DashboardStats {
+  portalWide?: boolean;
+  totalCommunities?: number;
   totalDocuments: number;
   publicDocuments: number;
   totalMembers: number;
@@ -89,7 +91,9 @@ export default function AdminDashboard() {
                 Welcome back, {user.displayName.split(" ")[0]} 👋
               </h1>
               <p className="text-white/70 mt-1 text-sm m-0">
-                {hoa?.name ?? "Your HOA"} · {hoa?.city}, {hoa?.state ?? "FL"}
+                {hoa?.name
+                  ? `${hoa.name} · ${hoa.city ?? ""}, ${hoa.state ?? "FL"}`
+                  : "Portal-wide overview · All communities"}
               </p>
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -139,6 +143,15 @@ export default function AdminDashboard() {
           {!loading && stats && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
               {[
+                ...(stats.portalWide
+                  ? [
+                      {
+                        label: "Communities",
+                        value: stats.totalCommunities ?? 0,
+                        icon: "🏘️",
+                      },
+                    ]
+                  : []),
                 { label: "Documents", value: stats.totalDocuments, icon: "📄" },
                 {
                   label: "Public Records",
