@@ -15,24 +15,34 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200);
   const offset = parseInt(searchParams.get("offset") ?? "0");
-  const hoaId =
-    user.role === "superadmin"
-      ? searchParams.get("hoaId") ?? user.hoaId
-      : user.hoaId;
+  const requestedHoaId = searchParams.get("hoaId");
 
-  if (!hoaId) {
+  // Superadmin with no HOA selected → portal-wide log across all communities
+  const isPortalWide =
+    user.role === "superadmin" && !requestedHoaId && !user.hoaId;
+
+  const where = isPortalWide
+    ? {}
+    : {
+        hoaId:
+          user.role === "superadmin"
+            ? requestedHoaId ?? user.hoaId
+            : user.hoaId,
+      };
+
+  if (!isPortalWide && !where.hoaId) {
     return NextResponse.json({ error: "No HOA context." }, { status: 400 });
   }
 
   const [entries, total] = await Promise.all([
     prisma.auditLog.findMany({
-      where: { hoaId },
+      where,
       orderBy: { timestamp: "desc" },
       take: limit,
       skip: offset,
       include: { user: { select: { email: true, name: true } } },
     }),
-    prisma.auditLog.count({ where: { hoaId } }),
+    prisma.auditLog.count({ where }),
   ]);
 
   return NextResponse.json({
