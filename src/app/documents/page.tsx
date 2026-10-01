@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { Header } from "@/components/layout/Header";
 import { ComplianceFooter } from "@/components/layout/ComplianceFooter";
@@ -8,77 +8,60 @@ import { DocumentVault } from "@/components/vault/DocumentVault";
 import { DocumentViewer } from "@/components/vault/DocumentViewer";
 import type { RedactedDocument } from "@/types";
 
+const ACCESS_LABEL: Record<string, string> = {
+  public: "Public records only",
+  resident: "Resident access",
+  admin: "Admin: full vault",
+  superadmin: "Super admin: all communities",
+};
+
 export default function DocumentsPage() {
   const { role, hoa } = useAuth();
   const accent = hoa?.accentColor ?? "#185FA5";
 
   const [viewingDoc, setViewingDoc] = useState<RedactedDocument | null>(null);
 
-  const handleView = useCallback(
-    (doc: RedactedDocument) => setViewingDoc(doc),
-    [],
-  );
-  const handleDownload = useCallback((_doc: RedactedDocument) => {}, []);
-
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col">
       <Header />
 
       {/* Page header */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="bg-white border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight m-0">
-                📁 Document Vault
+              <h1 className="text-2xl font-semibold text-gray-900 tracking-tight m-0 font-serif">
+                Document vault
               </h1>
-              <p className="text-sm text-gray-400 mt-1 m-0">
-                {hoa?.name ?? "Your HOA"} · F.S. 720.303 Compliant Records
+              <p className="text-sm text-gray-600 mt-1 m-0">
+                {hoa?.name ?? "Florida HOA Portal"}, official records under
+                F.S. 720.303
               </p>
             </div>
             <div
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
-              style={{ background: `${accent}12`, color: accent }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+              style={{ background: `${accent}14`, color: accent }}
             >
-              {role === "public" && "🔓 Public records only"}
-              {role === "resident" && "🔐 Resident access"}
-              {role === "admin" && "🛡️ Admin — full vault"}
-              {role === "superadmin" && "⚡ Super Admin"}
+              {ACCESS_LABEL[role] ?? ACCESS_LABEL.public}
             </div>
           </div>
         </div>
       </div>
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-8 py-6 space-y-6">
-        {role === "public" && (
-          <div className="flex items-start gap-3 px-5 py-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-800">
-            <span>ℹ️</span>
-            <span>
-              <strong>Public Access</strong> — Viewing publicly available
-              records per F.S. 720.303.{" "}
-              <a href="/login" className="underline font-semibold">
-                Sign in as a resident
-              </a>{" "}
-              to access financial summaries, meeting minutes, and more.
-            </span>
-          </div>
-        )}
-
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="p-6">
-            <DocumentVault onView={handleView} onDownload={handleDownload} />
+          <div className="p-4 sm:p-6">
+            <DocumentVault onView={setViewingDoc} />
           </div>
         </div>
 
-        <div className="px-5 py-4 bg-white rounded-xl border border-gray-100 text-xs text-gray-400 leading-relaxed">
-          <strong className="text-gray-500">
-            Florida Statute 720.303 Notice:
-          </strong>{" "}
-          This portal provides access to official HOA records as required by
-          Florida law. Documents containing personally identifiable information
-          are automatically redacted for non-administrator viewers. All document
-          access is logged to an immutable audit trail.
-        </div>
+        <p className="px-4 sm:px-5 py-4 bg-white rounded-xl border border-gray-200 text-xs text-gray-600 leading-relaxed m-0">
+          <strong className="text-gray-800">Florida Statute 720.303:</strong>{" "}
+          this portal gives access to official HOA records as the law
+          requires. Sensitive details in a document&apos;s text are hidden from
+          anyone who isn&apos;t an administrator, and signed-in access is
+          logged.
+        </p>
       </main>
 
       <ComplianceFooter />

@@ -77,7 +77,7 @@ export default function ProfilePage() {
             <h1 className="text-xl font-bold text-gray-900 m-0">
               {user?.displayName}
             </h1>
-            <p className="text-sm text-gray-400 m-0 mt-0.5">{user?.email}</p>
+            <p className="text-sm text-gray-600 m-0 mt-0.5">{user?.email}</p>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <span
                 className="text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide"
@@ -85,7 +85,7 @@ export default function ProfilePage() {
               >
                 {role}
               </span>
-              {hoa && <span className="text-xs text-gray-400">{hoa.name}</span>}
+              {hoa && <span className="text-xs text-gray-600">{hoa.name}</span>}
             </div>
           </div>
         </div>
@@ -124,7 +124,7 @@ export default function ProfilePage() {
                 )}
                 <div>
                   <div className="font-bold text-gray-900">{hoa.name}</div>
-                  <div className="text-sm text-gray-400">
+                  <div className="text-sm text-gray-600">
                     Florida HOA Portal
                   </div>
                 </div>
@@ -136,7 +136,7 @@ export default function ProfilePage() {
                   <div className="text-2xl font-bold" style={{ color: accent }}>
                     {docCount ?? "—"}
                   </div>
-                  <div className="text-xs text-gray-400 mt-0.5">
+                  <div className="text-xs text-gray-600 mt-0.5">
                     Documents Available
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export default function ProfilePage() {
                   <div className="text-2xl font-bold text-gray-700">
                     {activity.length}
                   </div>
-                  <div className="text-xs text-gray-400 mt-0.5">
+                  <div className="text-xs text-gray-600 mt-0.5">
                     Recent Actions
                   </div>
                 </div>
@@ -182,7 +182,7 @@ export default function ProfilePage() {
                 <span className="text-sm font-semibold text-gray-800">
                   {l.label}
                 </span>
-                <span className="text-xs text-gray-400">{l.desc}</span>
+                <span className="text-xs text-gray-600">{l.desc}</span>
               </Link>
             ))}
           </div>
@@ -197,11 +197,11 @@ export default function ProfilePage() {
           </div>
           <div className="divide-y divide-gray-50">
             {loading ? (
-              <div className="py-8 text-center text-gray-300 text-sm">
+              <div className="py-8 text-center text-gray-500 text-sm">
                 Loading…
               </div>
             ) : activity.length === 0 ? (
-              <div className="py-8 text-center text-gray-300 text-sm">
+              <div className="py-8 text-center text-gray-500 text-sm">
                 No activity yet
               </div>
             ) : (
@@ -217,7 +217,7 @@ export default function ProfilePage() {
                     <div className="text-sm text-gray-700 truncate">
                       {item.documentTitle ?? item.action}
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-gray-600">
                       {new Date(item.timestamp).toLocaleString()}
                     </div>
                   </div>

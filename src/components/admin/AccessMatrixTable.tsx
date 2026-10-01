@@ -67,7 +67,7 @@ export function AccessMatrixTable() {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs text-gray-400 font-mono">
+                  <span className="text-xs text-gray-600 font-mono">
                     {STATUTE_MAP[cat] ?? "—"}
                   </span>
                 </td>

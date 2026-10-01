@@ -1,94 +1,110 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import { ApiError, handle, readJson, requireAdmin, ROLES } from "@/lib/api";
+import { loadManagedUser } from "@/lib/users";
 
-async function getAuthorizedSession() {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
-  if (!user || !["admin", "superadmin"].includes(user.role)) return null;
-  return user;
-}
+type Ctx = { params: Promise<{ id: string }> };
 
 // PATCH /api/users/[id]
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const sessionUser = await getAuthorizedSession();
-  if (!sessionUser)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export const PATCH = handle(
+  "PATCH /api/users/[id]",
+  async (req: Request, { params }: Ctx) => {
+    const sessionUser = await requireAdmin();
+    const { id } = await params;
+    const { name, email, password, role, active, hoaId } = await readJson(req);
 
-  const { id } = await params;
-  const body = await req.json();
-  // Extract hoaId from the incoming body
-  const { name, email, password, role, active, hoaId } = body;
+    await loadManagedUser(id, sessionUser);
 
-  const target = await prisma.user.findUnique({ where: { id } });
-  if (!target)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const updateData: Record<string, unknown> = {};
 
-  if (sessionUser.role === "admin" && target.hoaId !== sessionUser.hoaId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (name !== undefined) updateData.name = name ? String(name).trim() : null;
+
+    if (email !== undefined) {
+      const cleanEmail = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        throw new ApiError(400, "Enter a valid email address.");
+      }
+      const clash = await prisma.user.findFirst({
+        where: {
+          email: { equals: cleanEmail, mode: "insensitive" },
+          NOT: { id },
+        },
+      });
+      if (clash) {
+        throw new ApiError(409, "A user with that email already exists.");
+      }
+      updateData.email = cleanEmail;
+    }
+
+    if (role !== undefined) {
+      if (!ROLES.includes(role)) throw new ApiError(400, "Unknown role.");
+      // Only a superadmin can promote someone to superadmin.
+      if (role === "superadmin" && sessionUser.role !== "superadmin") {
+        throw new ApiError(403, "Forbidden");
+      }
+      if (id === sessionUser.id && role !== sessionUser.role) {
+        throw new ApiError(400, "You cannot change your own role.");
+      }
+      updateData.role = role;
+    }
+
+    if (active !== undefined) {
+      if (id === sessionUser.id && !active) {
+        throw new ApiError(400, "You cannot deactivate your own account.");
+      }
+      updateData.active = Boolean(active);
+    }
+
+    // An empty password field means "leave it unchanged".
+    if (password !== undefined && password !== "") {
+      if (String(password).length < 8) {
+        throw new ApiError(400, "Password must be at least 8 characters.");
+      }
+      updateData.password = await bcrypt.hash(String(password), 10);
+    }
+
+    // Only superadmins can move a user to another HOA
+    if (hoaId !== undefined && sessionUser.role === "superadmin") {
+      if (hoaId) {
+        const hoa = await prisma.hOA.findUnique({ where: { id: hoaId } });
+        if (!hoa) throw new ApiError(404, "HOA not found.");
+      }
+      updateData.hoaId = hoaId || null;
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        hoaId: true,
+        active: true,
+      },
+    });
+
+    return NextResponse.json(updated);
   }
-
-  const updateData: Record<string, unknown> = {};
-  if (name !== undefined) updateData.name = name;
-  if (email !== undefined) updateData.email = email;
-  if (role !== undefined) updateData.role = role;
-  if (active !== undefined) updateData.active = active;
-  if (password !== undefined)
-    updateData.password = await bcrypt.hash(password, 10);
-
-  // Allow superadmins to reassign the user's HOA
-  if (hoaId !== undefined && sessionUser.role === "superadmin") {
-    updateData.hoaId = hoaId === "" ? null : hoaId;
-  }
-
-  const updated = await prisma.user.update({
-    where: { id },
-    data: updateData,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      hoaId: true,
-      active: true,
-    },
-  });
-
-  return NextResponse.json(updated);
-}
+);
 
 // DELETE /api/users/[id] — soft delete
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const sessionUser = await getAuthorizedSession();
-  if (!sessionUser)
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+export const DELETE = handle(
+  "DELETE /api/users/[id]",
+  async (_req: Request, { params }: Ctx) => {
+    const sessionUser = await requireAdmin();
+    const { id } = await params;
 
-  const { id } = await params;
+    await loadManagedUser(id, sessionUser);
 
-  const target = await prisma.user.findUnique({ where: { id } });
-  if (!target)
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
+    // Prevent self-deactivation
+    if (id === sessionUser.id) {
+      throw new ApiError(400, "You cannot deactivate your own account.");
+    }
 
-  if (sessionUser.role === "admin" && target.hoaId !== sessionUser.hoaId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    await prisma.user.update({ where: { id }, data: { active: false } });
+    return NextResponse.json({ success: true });
   }
-
-  // Prevent self-deactivation
-  if (id === sessionUser.id) {
-    return NextResponse.json(
-      { error: "You cannot deactivate your own account." },
-      { status: 400 }
-    );
-  }
-
-  await prisma.user.update({ where: { id }, data: { active: false } });
-  return NextResponse.json({ success: true });
-}
+);

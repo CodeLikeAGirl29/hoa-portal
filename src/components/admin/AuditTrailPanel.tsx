@@ -123,12 +123,12 @@ export function AuditTrailPanel() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-gray-300">
+        <div className="py-12 text-center text-gray-500">
           <div className="animate-spin text-2xl mb-3 inline-block">🔄</div>
           <div className="text-sm">Loading audit log…</div>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="py-12 text-center text-gray-300">
+        <div className="py-12 text-center text-gray-500">
           <div className="text-3xl mb-3">🗃️</div>
           <div className="text-sm">No activity yet.</div>
         </div>
@@ -154,10 +154,10 @@ export function AuditTrailPanel() {
                   <div className="font-medium text-gray-800 truncate">
                     {entry.documentTitle ?? "—"}
                   </div>
-                  <div className="text-xs text-gray-400 truncate">
+                  <div className="text-xs text-gray-600 truncate">
                     {entry.userName ?? entry.userEmail}
                     {entry.userEmail !== (entry.userName ?? "") && (
-                      <span className="text-gray-300 ml-1">
+                      <span className="text-gray-500 ml-1">
                         · {entry.userEmail}
                       </span>
                     )}
@@ -173,12 +173,12 @@ export function AuditTrailPanel() {
                 </span>
 
                 {/* IP */}
-                <span className="text-[11px] text-gray-300 font-mono hidden md:inline flex-shrink-0 w-28 text-right">
+                <span className="text-[11px] text-gray-500 font-mono hidden md:inline flex-shrink-0 w-28 text-right">
                   {entry.ipAddress ?? "—"}
                 </span>
 
                 {/* Time */}
-                <span className="text-[11px] text-gray-400 flex-shrink-0 w-32 text-right">
+                <span className="text-[11px] text-gray-600 flex-shrink-0 w-32 text-right">
                   {new Date(entry.timestamp).toLocaleString()}
                 </span>
               </div>
@@ -190,7 +190,7 @@ export function AuditTrailPanel() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-gray-600">
             Page {currentPage} of {totalPages}
           </span>
           <div className="flex gap-2">

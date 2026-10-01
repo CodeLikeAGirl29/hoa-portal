@@ -2,134 +2,127 @@
 
 import { useEffect } from "react";
 import type { RedactedDocument } from "@/types";
-import { CategoryBadge, Button } from "@/components/ui";
+import { CategoryBadge } from "@/components/ui";
+import { Modal } from "@/components/ui/Modal";
 import { REDACTED_FIELD_LABELS } from "@/lib/redaction";
+import { formatBytes, isInlineMime } from "@/lib/files";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useAuth } from "@/hooks/useAuth";
 
 interface DocumentViewerProps {
   document: RedactedDocument | null;
   onClose: () => void;
 }
 
+const ACTION_CLASS =
+  "inline-flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold no-underline transition-colors";
+
 export function DocumentViewer({
   document: doc,
   onClose,
 }: DocumentViewerProps) {
   const { log } = useAuditLog();
+  const { role } = useAuth();
+  const docId = doc?.id;
+  const docTitle = doc?.title;
 
+  // Record the view once per document opened — not on every re-render.
   useEffect(() => {
-    if (!doc) return;
-    log("VIEW", { documentId: doc.id, documentTitle: doc.title });
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [doc?.id, log, onClose]);
+    if (!docId || role === "public") return;
+    log("VIEW", { documentId: docId, documentTitle: docTitle });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
 
   if (!doc) return null;
 
+  const downloadUrl = `/api/docs/${doc.id}/download`;
+  const canOpenInBrowser = doc.file ? isInlineMime(doc.file.mimeType) : false;
+  const details = [
+    doc.pages ? `${doc.pages} pages` : null,
+    doc.file ? formatBytes(doc.file.size) : doc.fileSize,
+    `Last modified ${doc.lastModified}`,
+  ].filter(Boolean);
+
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-5"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="doc-viewer-title"
-    >
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-        {/* Header */}
-        <div className="flex justify-between items-start px-6 py-5 border-b border-gray-100 bg-white rounded-t-2xl">
-          <div>
-            <div className="flex items-center gap-3 mb-1 flex-wrap">
-              <h2
-                id="doc-viewer-title"
-                className="m-0 text-base font-bold text-gray-900"
-              >
-                {doc.title}
-              </h2>
-              <CategoryBadge category={doc.category} />
-            </div>
-            <p className="text-xs text-gray-400 m-0">
-              {doc.pages ? `${doc.pages} pages · ` : ""}
-              {doc.fileSize ? `${doc.fileSize} · ` : ""}
-              Last modified {String(doc.lastModified ?? "")}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent flex-shrink-0"
-          >
-            ×
-          </button>
-        </div>
-
-        {/* Banner */}
-        <div
-          className="flex items-center justify-between px-6 py-2 flex-shrink-0"
-          style={{ background: "linear-gradient(135deg, #185FA5, #0C447C)" }}
-        >
-          <span className="text-white text-[11px] font-bold tracking-widest uppercase">
-            ⚓ Official Record — Florida HOA Portal
+    <Modal
+      title={doc.title}
+      titleAside={<CategoryBadge category={doc.category} />}
+      description={details.join(", ")}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xs text-gray-600">
+            {role === "public"
+              ? "Public record"
+              : "Your access to this record is logged."}
           </span>
-          <span className="text-white/60 text-[11px]">F.S. 720.303</span>
-        </div>
-
-        {/* Content */}
-        <div className="overflow-y-auto flex-1 p-6 space-y-4">
-          {doc.wasRedacted && (
-            <div
-              className="rounded-xl px-4 py-3 text-sm"
-              style={{
-                background: "#FAEEDA",
-                border: "1px solid #EF9F27",
-                color: "#854F0B",
-              }}
+          <div className="flex gap-2">
+            {doc.file && canOpenInBrowser && (
+              <a
+                href={`${downloadUrl}?inline=1`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${ACTION_CLASS} bg-white border border-gray-300 text-gray-800 hover:bg-gray-100`}
+              >
+                Open file
+              </a>
+            )}
+            <a
+              href={downloadUrl}
+              className={`${ACTION_CLASS} bg-blue-700 text-white hover:bg-blue-800`}
             >
-              <strong>Redaction Notice:</strong> Sensitive data has been
-              automatically redacted per F.S. 720 and your access level.
+              Download
+            </a>
+          </div>
+        </div>
+      }
+    >
+      <div className="p-5 sm:p-6 space-y-4">
+        {doc.file && (
+          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+            <span aria-hidden="true" className="text-xl">
+              📎
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-900 truncate">
+                {doc.file.fileName}
+              </div>
+              <div className="text-xs text-gray-600">
+                {formatBytes(doc.file.size)}, shared exactly as uploaded
+              </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {doc.wasRedacted && doc.redactedFields.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {doc.redactedFields.map((f) => (
-                <span
-                  key={f}
-                  className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: "#FAECE7", color: "#712B13" }}
-                >
-                  🔒 {REDACTED_FIELD_LABELS[f]} redacted
-                </span>
-              ))}
-            </div>
-          )}
-
+        {doc.wasRedacted && (
           <div
-            className="rounded-xl p-5 text-sm leading-relaxed text-gray-700 border border-gray-100 whitespace-pre-wrap"
+            className="rounded-lg px-4 py-3 text-sm"
             style={{
-              background: "#fdfcfa",
-              fontFamily: "Georgia, 'Times New Roman', serif",
+              background: "#FAEEDA",
+              border: "1px solid #EF9F27",
+              color: "#633806",
             }}
           >
-            {doc.content || (
-              <span className="text-gray-300 italic">
-                No content available.
-              </span>
-            )}
+            <strong>Some details are hidden.</strong> For your access level,
+            the text below leaves out:{" "}
+            {doc.redactedFields.map((f) => REDACTED_FIELD_LABELS[f]).join(", ")}
+            .
           </div>
-        </div>
+        )}
 
-        {/* Footer */}
-        <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex-shrink-0">
-          <span className="text-[11px] text-gray-400">
-            Accessed {new Date().toLocaleString()} · Logged to audit trail
-          </span>
-          <Button variant="primary" size="sm" onClick={onClose}>
-            Close
-          </Button>
-        </div>
+        {doc.content ? (
+          <div className="rounded-lg p-5 text-[15px] leading-7 text-gray-800 border border-gray-200 whitespace-pre-wrap font-serif bg-[#fdfcfa] max-w-[70ch]">
+            {doc.content}
+          </div>
+        ) : (
+          !doc.file && (
+            <p className="text-sm text-gray-600 m-0">
+              This document has no text or file yet.
+            </p>
+          )
+        )}
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,52 +1,18 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { ApiError, handle } from "@/lib/api";
+import { getPublicHoa } from "@/lib/public-hoa";
 
-// GET /api/public/hoa/[slug]
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ slug: string }> }
-) {
-  const { slug } = await params;
+type Ctx = { params: Promise<{ slug: string }> };
 
-  const hoa = await prisma.hOA.findUnique({
-    where: { slug, active: true },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      logoUrl: true,
-      accentColor: true,
-      address: true,
-      city: true,
-      state: true,
-      zip: true,
-      phone: true,
-      email: true,
-      website: true,
-    },
-  });
+// GET /api/public/hoa/[slug] — one community and its public documents
+export const GET = handle(
+  "GET /api/public/hoa/[slug]",
+  async (_req: Request, { params }: Ctx) => {
+    const { slug } = await params;
 
-  if (!hoa) {
-    return NextResponse.json(
-      { error: "Community not found." },
-      { status: 404 }
-    );
+    const data = await getPublicHoa(slug);
+    if (!data) throw new ApiError(404, "Community not found.");
+
+    return NextResponse.json(data);
   }
-
-  const documents = await prisma.document.findMany({
-    where: { hoaId: hoa.id, isPublic: true },
-    orderBy: [{ category: "asc" }, { uploadDate: "desc" }],
-    select: {
-      id: true,
-      title: true,
-      category: true,
-      fileSize: true,
-      pages: true,
-      uploadDate: true,
-      lastModified: true,
-      isMandatoryRecord: true,
-    },
-  });
-
-  return NextResponse.json({ hoa, documents });
-}
+);

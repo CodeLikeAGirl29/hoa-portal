@@ -82,7 +82,7 @@ export function ImplementationChecklist() {
                 {item.label}
               </p>
               {item.description && (
-                <p className="text-xs text-gray-400 mt-0.5 m-0">{item.description}</p>
+                <p className="text-xs text-gray-600 mt-0.5 m-0">{item.description}</p>
               )}
               {item.statute && (
                 <p className="text-[11px] font-mono mt-1 m-0" style={{ color: "#185FA5" }}>

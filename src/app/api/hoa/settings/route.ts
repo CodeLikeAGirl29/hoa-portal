@@ -1,51 +1,38 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  ApiError,
+  handle,
+  readJson,
+  requireAdmin,
+  resolveHoaId,
+} from "@/lib/api";
+import type { SessionUser } from "@/lib/api";
 
-// GET /api/hoa/settings — get the current user's HOA
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (!user.hoaId) {
-    return NextResponse.json(
-      { error: "No HOA assigned to your account." },
-      { status: 400 }
-    );
-  }
-
-  const hoa = await prisma.hOA.findUnique({
-    where: { id: user.hoaId },
-  });
-
-  if (!hoa)
-    return NextResponse.json({ error: "HOA not found." }, { status: 404 });
-
-  return NextResponse.json(hoa);
+function settingsHoaId(user: SessionUser, requested: string | null): string {
+  const hoaId = resolveHoaId(user, requested);
+  if (!hoaId) throw new ApiError(400, "No HOA assigned to your account.");
+  return hoaId;
 }
 
+// GET /api/hoa/settings — the current user's HOA
+export const GET = handle("GET /api/hoa/settings", async (req: Request) => {
+  const user = await requireAdmin();
+  const hoaId = settingsHoaId(user, new URL(req.url).searchParams.get("hoaId"));
+
+  const hoa = await prisma.hOA.findUnique({ where: { id: hoaId } });
+  if (!hoa) throw new ApiError(404, "HOA not found.");
+
+  return NextResponse.json(hoa);
+});
+
 // PATCH /api/hoa/settings — update the current user's HOA
-export async function PATCH(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+export const PATCH = handle("PATCH /api/hoa/settings", async (req: Request) => {
+  const user = await requireAdmin();
+  const hoaId = settingsHoaId(user, new URL(req.url).searchParams.get("hoaId"));
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (!user.hoaId) {
-    return NextResponse.json(
-      { error: "No HOA assigned to your account." },
-      { status: 400 }
-    );
-  }
-
-  const body = await req.json();
   const {
     name,
     logoUrl,
@@ -57,24 +44,31 @@ export async function PATCH(req: Request) {
     phone,
     email,
     website,
-  } = body;
+  } = await readJson(req);
 
-  if (name !== undefined && !name.trim()) {
-    return NextResponse.json(
-      { error: "Name cannot be empty." },
-      { status: 400 }
-    );
+  if (name !== undefined && !String(name).trim()) {
+    throw new ApiError(400, "Name cannot be empty.");
+  }
+  if (accentColor !== undefined && !COLOR_RE.test(accentColor)) {
+    throw new ApiError(400, "Accent color must be a hex value like #185FA5.");
+  }
+  // The logo is rendered as an <img src>, so only allow web addresses.
+  if (logoUrl && !/^https?:\/\//i.test(logoUrl)) {
+    throw new ApiError(400, "Logo URL must start with http:// or https://.");
   }
 
+  const existing = await prisma.hOA.findUnique({ where: { id: hoaId } });
+  if (!existing) throw new ApiError(404, "HOA not found.");
+
   const hoa = await prisma.hOA.update({
-    where: { id: user.hoaId },
+    where: { id: hoaId },
     data: {
-      ...(name !== undefined && { name: name.trim() }),
+      ...(name !== undefined && { name: String(name).trim() }),
       ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
       ...(accentColor !== undefined && { accentColor }),
       ...(address !== undefined && { address: address || null }),
       ...(city !== undefined && { city: city || null }),
-      ...(state !== undefined && { state }),
+      ...(state !== undefined && { state: state || "FL" }),
       ...(zip !== undefined && { zip: zip || null }),
       ...(phone !== undefined && { phone: phone || null }),
       ...(email !== undefined && { email: email || null }),
@@ -83,4 +77,4 @@ export async function PATCH(req: Request) {
   });
 
   return NextResponse.json(hoa);
-}
+});

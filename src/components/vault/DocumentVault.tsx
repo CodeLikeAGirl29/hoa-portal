@@ -4,26 +4,28 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { DocumentCard } from "./DocumentCard";
 import { DocumentUploadModal } from "./DocumentUploadModal";
+import { CommunityDirectory } from "./CommunityDirectory";
+import { CATEGORY_META } from "@/lib/redaction";
 import type { RedactedDocument } from "@/types";
 
 interface DocumentVaultProps {
   onView: (doc: RedactedDocument) => void;
-  onDownload: (doc: RedactedDocument) => void;
+  /** Called with the full list whenever documents are (re)loaded. */
+  onLoaded?: (docs: RedactedDocument[]) => void;
 }
 
-const CATEGORIES = [
-  "All",
-  "Governing",
-  "Financial",
-  "Meetings",
-  "Notices",
-  "Insurance",
-  "Contracts",
-];
+// Filter pills come from the real category list, so every category a
+// document can be filed under has a pill (and none exist that match nothing).
+const CATEGORIES = ["All", ...Object.values(CATEGORY_META).map((m) => m.label)];
 
-export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
-  const { role } = useAuth();
+export function DocumentVault({ onView, onLoaded }: DocumentVaultProps) {
+  const { role, user } = useAuth();
   const isAdmin = role === "admin" || role === "superadmin";
+  // A visitor isn't tied to a community, so there is no vault to load —
+  // they pick a community from the directory instead.
+  const isVisitor = role === "public";
+  // Superadmins see every community; without one of their own they can't add.
+  const canAdd = isAdmin && Boolean(user.hoaId);
 
   const [docs, setDocs] = useState<RedactedDocument[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,19 +36,28 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
   const [editingDoc, setEditingDoc] = useState<RedactedDocument | null>(null);
 
   const fetchDocs = useCallback(async () => {
+    if (isVisitor) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
       const res = await fetch("/api/documents");
-      if (!res.ok) throw new Error("Failed to load documents");
-      const data = await res.json();
-      setDocs(Array.isArray(data) ? data : []);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error ?? "Failed to load documents");
+      const list: RedactedDocument[] = Array.isArray(data) ? data : [];
+      setDocs(list);
+      onLoaded?.(list);
     } catch (err: any) {
-      setError(err.message ?? "Unknown error");
+      setError(err.message ?? "Failed to load documents");
     } finally {
       setLoading(false);
     }
-  }, []);
+    // onLoaded is left out on purpose: a parent passing an inline function
+    // would otherwise reload the vault on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVisitor]);
 
   useEffect(() => {
     fetchDocs();
@@ -56,16 +67,24 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
     if (!confirm(`Delete "${doc.title}"? This cannot be undone.`)) return;
     try {
       const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to delete");
+      }
       fetchDocs();
     } catch (err: any) {
       alert(err.message ?? "Delete failed");
     }
   }
 
+  if (isVisitor) return <CommunityDirectory />;
+
+  const query = search.trim().toLowerCase();
   const filtered = docs.filter((d) => {
     const matchesSearch =
-      !search || d.title.toLowerCase().includes(search.toLowerCase());
+      !query ||
+      d.title.toLowerCase().includes(query) ||
+      d.content.toLowerCase().includes(query);
     const matchesCategory =
       activeCategory === "All" ||
       d.category.toLowerCase() === activeCategory.toLowerCase();
@@ -77,33 +96,38 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
       {/* Toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <input
-          type="text"
+          type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search documents…"
-          className="flex-1 min-w-48 px-4 py-2.5 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+          aria-label="Search documents"
+          className="flex-1 min-w-[12rem] px-4 py-2.5 border border-gray-300 rounded-lg text-sm placeholder:text-gray-500 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
         />
-        {isAdmin && (
+        {canAdd && (
           <button
             onClick={() => setShowUpload(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white cursor-pointer border-0"
-            style={{ background: "linear-gradient(135deg, #185FA5, #0C447C)" }}
+            className="px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-700 hover:bg-blue-800 cursor-pointer border-0 transition-colors"
           >
-            + Add Document
+            Add document
           </button>
         )}
       </div>
 
-      {/* Category pills */}
-      <div className="flex gap-2 flex-wrap">
+      {/* Category pills — scroll sideways on a phone instead of stacking */}
+      <div
+        className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+        role="group"
+        aria-label="Filter by category"
+      >
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setCategory(cat)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-all ${
+            aria-pressed={activeCategory === cat}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer border transition-colors whitespace-nowrap flex-shrink-0 ${
               activeCategory === cat
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100"
+                ? "bg-blue-700 text-white border-blue-700"
+                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100"
             }`}
           >
             {cat}
@@ -113,20 +137,18 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
 
       {/* Loading */}
       {loading && (
-        <div className="py-16 text-center">
-          <div className="text-3xl mb-3 animate-pulse">📄</div>
-          <div className="text-sm text-gray-400">Loading documents…</div>
+        <div className="py-16 text-center text-sm text-gray-600" role="status">
+          Loading documents…
         </div>
       )}
 
       {/* Error */}
       {!loading && error && (
-        <div className="py-8 text-center">
-          <div className="text-3xl mb-3">⚠️</div>
-          <div className="text-sm text-red-500 mb-3">{error}</div>
+        <div className="py-8 text-center" role="alert">
+          <div className="text-sm text-red-700 mb-3">{error}</div>
           <button
             onClick={fetchDocs}
-            className="px-4 py-2 rounded-xl text-sm text-blue-600 border border-blue-200 hover:bg-blue-50 cursor-pointer bg-white"
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-blue-800 border border-blue-200 hover:bg-blue-50 cursor-pointer bg-white"
           >
             Try again
           </button>
@@ -135,27 +157,27 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
 
       {/* Empty */}
       {!loading && !error && filtered.length === 0 && (
-        <div className="py-16 text-center">
-          <div className="text-4xl mb-3">📭</div>
-          <div className="text-sm text-gray-400">
-            {search
-              ? `No documents matching "${search}"`
-              : "No documents available yet."}
-          </div>
+        <div className="py-16 text-center text-sm text-gray-600">
+          {query
+            ? `No documents match "${search}".`
+            : activeCategory !== "All"
+              ? `No ${activeCategory.toLowerCase()} documents yet.`
+              : canAdd
+                ? "No documents yet. Add the first one to get started."
+                : "No documents available yet."}
         </div>
       )}
 
       {/* Document grid */}
       {!loading && !error && filtered.length > 0 && (
-        <div className="grid gap-3">
+        <div className="grid gap-3 lg:grid-cols-2">
           {filtered.map((doc) => (
             <DocumentCard
               key={doc.id}
               document={doc}
-              onView={() => onView(doc)}
-              onDownload={() => onDownload(doc)}
-              onEdit={isAdmin ? () => setEditingDoc(doc) : undefined}
-              onDelete={isAdmin ? () => handleDelete(doc) : undefined}
+              onView={onView}
+              onEdit={isAdmin ? setEditingDoc : undefined}
+              onDelete={isAdmin ? handleDelete : undefined}
             />
           ))}
         </div>
@@ -181,8 +203,8 @@ export function DocumentVault({ onView, onDownload }: DocumentVaultProps) {
             isAccessibleToResidents: editingDoc.isAccessibleToResidents,
             requiresLogin: editingDoc.requiresLogin,
             isMandatoryRecord: editingDoc.isMandatoryRecord,
-            fileSize: editingDoc.fileSize ?? "",
             pages: editingDoc.pages ? String(editingDoc.pages) : "",
+            file: editingDoc.file ?? null,
           }}
           onSave={fetchDocs}
           onClose={() => setEditingDoc(null)}

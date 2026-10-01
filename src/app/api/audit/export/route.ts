@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ApiError, handle, requireAdmin, resolveHoaId } from "@/lib/api";
 
-// Escapes a value for safe CSV output (handles commas, quotes, newlines).
+// Escapes a value for safe CSV output (handles commas, quotes, newlines) and
+// neutralises cells a spreadsheet would otherwise run as a formula.
 function csvCell(value: unknown): string {
-  const s = value === null || value === undefined ? "" : String(value);
+  let s = value === null || value === undefined ? "" : String(value);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   if (/[",\n\r]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }
@@ -13,38 +14,37 @@ function csvCell(value: unknown): string {
 }
 
 // GET /api/audit/export — full audit log for the current HOA as CSV
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
-
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export const GET = handle("GET /api/audit/export", async (req: Request) => {
+  const user = await requireAdmin();
 
   const { searchParams } = new URL(req.url);
-  const hoaId =
-    user.role === "superadmin"
-      ? searchParams.get("hoaId") ?? user.hoaId
-      : user.hoaId;
+  const hoaId = resolveHoaId(user, searchParams.get("hoaId"));
 
-  if (!hoaId) {
-    return NextResponse.json({ error: "No HOA context." }, { status: 400 });
+  // A superadmin with no community selected exports every community.
+  if (!hoaId && user.role !== "superadmin") {
+    throw new ApiError(400, "No HOA context.");
   }
 
   const [hoa, entries] = await Promise.all([
-    prisma.hOA.findUnique({
-      where: { id: hoaId },
-      select: { name: true, slug: true },
-    }),
+    hoaId
+      ? prisma.hOA.findUnique({
+          where: { id: hoaId },
+          select: { name: true, slug: true },
+        })
+      : null,
     prisma.auditLog.findMany({
-      where: { hoaId },
+      where: hoaId ? { hoaId } : {},
       orderBy: { timestamp: "desc" },
-      include: { user: { select: { email: true, name: true } } },
+      include: {
+        user: { select: { email: true, name: true } },
+        hoa: { select: { name: true } },
+      },
     }),
   ]);
 
   const headers = [
     "Timestamp",
+    "Community",
     "Action",
     "Blocked",
     "Document",
@@ -56,6 +56,7 @@ export async function GET(req: Request) {
   const rows = entries.map((e) =>
     [
       e.timestamp.toISOString(),
+      e.hoa?.name ?? "",
       e.action,
       e.action === "UNAUTHORIZED_ACCESS_ATTEMPT" ? "YES" : "",
       e.documentTitle ?? "",
@@ -70,13 +71,14 @@ export async function GET(req: Request) {
   const csv = [headers.join(","), ...rows].join("\r\n");
 
   const datestamp = new Date().toISOString().split("T")[0];
-  const filename = `audit-log-${hoa?.slug ?? "hoa"}-${datestamp}.csv`;
+  const filename = `audit-log-${hoa?.slug ?? "all-communities"}-${datestamp}.csv`;
 
   return new NextResponse(csv, {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "no-store",
     },
   });
-}
+});

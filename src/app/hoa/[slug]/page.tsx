@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getPublicHoa } from "@/lib/public-hoa";
+
+// Rebuild each community page at most once a minute.
+export const revalidate = 60;
 
 interface PublicDoc {
   id: string;
@@ -7,7 +11,7 @@ interface PublicDoc {
   category: string;
   fileSize: string | null;
   pages: number | null;
-  uploadDate: string;
+  uploadDate: Date | string;
   isMandatoryRecord: boolean;
 }
 
@@ -58,17 +62,16 @@ function getMonogram(name: string): string {
     .join("");
 }
 
+// Reads straight from the database. This used to call the site's own API
+// over HTTP via NEXTAUTH_URL, which reported "Community Not Found" whenever
+// that variable was missing or pointed at the wrong host.
 async function getHOAData(
   slug: string,
 ): Promise<{ hoa: HOAInfo; documents: PublicDoc[] } | null> {
   try {
-    const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-    const res = await fetch(`${baseUrl}/api/public/hoa/${slug}`, {
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch {
+    return await getPublicHoa(slug);
+  } catch (err) {
+    console.error(`Public HOA page "${slug}" failed to load:`, err);
     return null;
   }
 }
@@ -103,7 +106,7 @@ export default async function PublicHOAPage({
           <h1 className="text-2xl font-bold text-gray-800 mb-2">
             Community Not Found
           </h1>
-          <p className="text-gray-400 mb-6">
+          <p className="text-gray-600 mb-6">
             No active HOA exists with that address.
           </p>
           <Link
@@ -137,7 +140,7 @@ export default async function PublicHOAPage({
           background: `linear-gradient(135deg, ${accent}, ${accentDark})`,
         }}
       >
-        <div className="max-w-4xl mx-auto px-8 py-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-8 py-10">
           <div className="flex items-center gap-4 mb-6">
             {hoa.logoUrl ? (
               <img
@@ -180,6 +183,7 @@ export default async function PublicHOAPage({
               <a
                 href={hoa.website}
                 target="_blank"
+                rel="noopener noreferrer"
                 className="text-white/80 hover:text-white no-underline"
               >
                 🌐 {hoa.website}
@@ -190,9 +194,9 @@ export default async function PublicHOAPage({
       </div>
 
       {/* Compliance bar */}
-      <div className="bg-white border-b border-gray-100 px-8 py-3">
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between flex-wrap gap-2">
-          <p className="text-xs text-gray-400 m-0">
+          <p className="text-xs text-gray-600 m-0">
             Public records published per{" "}
             <strong>Florida Statute 720.303</strong> · {documents.length} public
             document{documents.length !== 1 ? "s" : ""}
@@ -212,9 +216,9 @@ export default async function PublicHOAPage({
       </div>
 
       {/* Documents */}
-      <div className="max-w-4xl mx-auto px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
         {documents.length === 0 ? (
-          <div className="text-center py-16 text-gray-300">
+          <div className="text-center py-16 text-gray-500">
             <div className="text-5xl mb-4">📁</div>
             <div className="text-lg">No public documents available yet.</div>
             <p className="text-sm mt-2">
@@ -228,7 +232,7 @@ export default async function PublicHOAPage({
                 <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                   <span>{CATEGORY_ICONS[category] ?? "📄"}</span>
                   {category.charAt(0).toUpperCase() + category.slice(1)}
-                  <span className="text-gray-300 font-normal normal-case tracking-normal">
+                  <span className="text-gray-500 font-normal normal-case tracking-normal">
                     ({docs.length})
                   </span>
                 </h2>
@@ -252,23 +256,23 @@ export default async function PublicHOAPage({
                             </span>
                           )}
                           {doc.pages && (
-                            <span className="text-[11px] text-gray-400">
+                            <span className="text-[11px] text-gray-600">
                               {doc.pages}p
                             </span>
                           )}
                           {doc.fileSize && (
-                            <span className="text-[11px] text-gray-400">
+                            <span className="text-[11px] text-gray-600">
                               {doc.fileSize}
                             </span>
                           )}
-                          <span className="text-[11px] text-gray-300">
+                          <span className="text-[11px] text-gray-500">
                             {new Date(doc.uploadDate).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
-                      {/* Sign in to view */}
                       <Link
-                        href="/login"
+                        href={`/hoa/${hoa.slug}/documents/${doc.id}`}
+                        aria-label={`View ${doc.title}`}
                         className="flex-shrink-0 text-xs font-semibold no-underline px-2.5 py-1.5 rounded-lg transition-all"
                         style={{ color: accent, background: `${accent}12` }}
                       >
@@ -284,11 +288,11 @@ export default async function PublicHOAPage({
 
         {/* Footer */}
         <div className="mt-12 pt-6 border-t border-gray-100 text-center">
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-600">
             {hoa.name} · Public Records Portal · Florida Statute 720.303
             Compliant
           </p>
-          <p className="text-xs text-gray-300 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Powered by{" "}
             <Link href="/" className="no-underline" style={{ color: accent }}>
               Florida HOA Portal

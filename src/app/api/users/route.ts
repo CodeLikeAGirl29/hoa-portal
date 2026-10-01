@@ -1,28 +1,27 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import { ApiError, handle, readJson, requireAdmin, ROLES } from "@/lib/api";
+import { unusablePassword } from "@/lib/tokens";
+import { sendPasswordLink } from "@/lib/users";
 
-// GET /api/users — list users for the current HOA (admin) or all HOAs (superadmin)
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+// GET /api/users — users of the current HOA (admin) or of any HOA (superadmin)
+export const GET = handle("GET /api/users", async (req: Request) => {
+  const user = await requireAdmin();
 
   const { searchParams } = new URL(req.url);
   const hoaId = searchParams.get("hoaId");
 
-  // Admins can only see their own HOA's users
+  // Admins can only see their own HOA's users. An admin with no HOA must
+  // match nothing — an empty filter here would list every community's users.
   const filterHoaId =
-    user.role === "superadmin" ? hoaId ?? undefined : user.hoaId;
+    user.role === "superadmin" ? hoaId ?? undefined : user.hoaId ?? "";
 
   const users = await prisma.user.findMany({
     where: {
-      ...(filterHoaId ? { hoaId: filterHoaId } : {}),
+      ...(filterHoaId !== undefined ? { hoaId: filterHoaId } : {}),
       // Superadmins are platform-level, don't show them in HOA lists
       NOT: { role: "superadmin" },
     },
@@ -40,53 +39,71 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json(users);
-}
+});
 
-// POST /api/users — create a new user (admin creates within their HOA, superadmin anywhere)
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const sessionUser = session?.user as any;
+// POST /api/users — create a user (admin: inside their HOA; superadmin: anywhere).
+// With `sendInvite: true` no password is needed: the new member is emailed a
+// link to choose their own.
+export const POST = handle("POST /api/users", async (req: Request) => {
+  const sessionUser = await requireAdmin();
+  const { email, name, password, role, hoaId, sendInvite } =
+    await readJson(req);
 
-  if (!sessionUser || !["admin", "superadmin"].includes(sessionUser.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const invite = Boolean(sendInvite);
 
-  const body = await req.json();
-  const { email, name, password, role, hoaId } = body;
-
-  if (!email || !password || !role) {
-    return NextResponse.json(
-      { error: "Email, password, and role are required." },
-      { status: 400 }
+  if (!email || !role || (!invite && !password)) {
+    throw new ApiError(
+      400,
+      invite
+        ? "Email and role are required."
+        : "Email, password, and role are required."
     );
   }
 
-  // Admins can only create residents within their own HOA
+  const cleanEmail = String(email).trim().toLowerCase();
+  if (!EMAIL_RE.test(cleanEmail)) {
+    throw new ApiError(400, "Enter a valid email address.");
+  }
+  if (!invite && String(password).length < 8) {
+    throw new ApiError(400, "Password must be at least 8 characters.");
+  }
+  if (!ROLES.includes(role)) {
+    throw new ApiError(400, "Unknown role.");
+  }
+  // Only a superadmin can mint another superadmin.
+  if (role === "superadmin" && sessionUser.role !== "superadmin") {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  // Admins can only create users within their own HOA
   const targetHoaId =
-    sessionUser.role === "superadmin" ? hoaId ?? null : sessionUser.hoaId;
+    sessionUser.role === "superadmin" ? hoaId || null : sessionUser.hoaId;
 
-  if (sessionUser.role === "admin" && role === "admin") {
-    // Admins can create other admins only within their own HOA
-    if (!targetHoaId || targetHoaId !== sessionUser.hoaId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  if (sessionUser.role !== "superadmin" && !targetHoaId) {
+    throw new ApiError(400, "Your account isn't assigned to a community.");
+  }
+  if (targetHoaId) {
+    const hoa = await prisma.hOA.findUnique({ where: { id: targetHoaId } });
+    if (!hoa) throw new ApiError(404, "HOA not found.");
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: cleanEmail, mode: "insensitive" } },
+  });
   if (existing) {
-    return NextResponse.json(
-      { error: "A user with that email already exists." },
-      { status: 409 }
-    );
+    throw new ApiError(409, "A user with that email already exists.");
   }
-
-  const hashed = await bcrypt.hash(password, 10);
 
   const newUser = await prisma.user.create({
     data: {
-      email,
-      name: name || null,
-      password: hashed,
+      email: cleanEmail,
+      name: name ? String(name).trim() : null,
+      // Invited members get a random password nobody knows until they
+      // choose their own through the emailed link.
+      password: await bcrypt.hash(
+        invite ? unusablePassword() : String(password),
+        10
+      ),
       role,
       hoaId: targetHoaId,
     },
@@ -101,5 +118,14 @@ export async function POST(req: Request) {
     },
   });
 
-  return NextResponse.json(newUser, { status: 201 });
-}
+  if (!invite) return NextResponse.json(newUser, { status: 201 });
+
+  const delivery = await sendPasswordLink(
+    newUser,
+    "invite",
+    sessionUser.name ?? sessionUser.email,
+    req
+  );
+
+  return NextResponse.json({ ...newUser, invite: delivery }, { status: 201 });
+});

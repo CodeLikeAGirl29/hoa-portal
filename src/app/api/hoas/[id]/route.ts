@@ -1,85 +1,93 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ApiError, handle, readJson, requireSuperadmin } from "@/lib/api";
+
+type Ctx = { params: Promise<{ id: string }> };
+
+const SLUG_RE = /^[a-z0-9-]+$/;
+const COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 
 // PATCH /api/hoas/[id] — update an HOA
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+export const PATCH = handle(
+  "PATCH /api/hoas/[id]",
+  async (req: Request, { params }: Ctx) => {
+    await requireSuperadmin();
 
-  if (!user || user.role !== "superadmin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+    const { id } = await params;
+    const {
+      name,
+      slug,
+      accentColor,
+      address,
+      city,
+      state,
+      zip,
+      phone,
+      email,
+      website,
+      active,
+    } = await readJson(req);
 
-  const { id } = await params;
-  const body = await req.json();
+    const existing = await prisma.hOA.findUnique({ where: { id } });
+    if (!existing) throw new ApiError(404, "HOA not found.");
 
-  const {
-    name,
-    slug,
-    accentColor,
-    address,
-    city,
-    state,
-    zip,
-    phone,
-    email,
-    website,
-    active,
-  } = body;
+    if (name !== undefined && !String(name).trim()) {
+      throw new ApiError(400, "Name cannot be empty.");
+    }
+    if (slug !== undefined && !SLUG_RE.test(slug)) {
+      throw new ApiError(
+        400,
+        "Slug may only contain lowercase letters, numbers, and hyphens."
+      );
+    }
+    if (accentColor !== undefined && !COLOR_RE.test(accentColor)) {
+      throw new ApiError(400, "Accent color must be a hex value like #185FA5.");
+    }
+    if (slug !== undefined && slug !== existing.slug) {
+      const clash = await prisma.hOA.findUnique({ where: { slug } });
+      if (clash) {
+        throw new ApiError(409, "A community with that slug already exists.");
+      }
+    }
 
-  if (slug && !/^[a-z0-9-]+$/.test(slug)) {
-    return NextResponse.json(
-      {
-        error: "Slug may only contain lowercase letters, numbers, and hyphens.",
+    const hoa = await prisma.hOA.update({
+      where: { id },
+      data: {
+        ...(name !== undefined && { name: String(name).trim() }),
+        ...(slug !== undefined && { slug }),
+        ...(accentColor !== undefined && { accentColor }),
+        ...(address !== undefined && { address: address || null }),
+        ...(city !== undefined && { city: city || null }),
+        ...(state !== undefined && { state: state || "FL" }),
+        ...(zip !== undefined && { zip: zip || null }),
+        ...(phone !== undefined && { phone: phone || null }),
+        ...(email !== undefined && { email: email || null }),
+        ...(website !== undefined && { website: website || null }),
+        ...(active !== undefined && { active: Boolean(active) }),
       },
-      { status: 400 }
-    );
+    });
+
+    return NextResponse.json(hoa);
   }
-
-  const hoa = await prisma.hOA.update({
-    where: { id },
-    data: {
-      ...(name !== undefined && { name }),
-      ...(slug !== undefined && { slug }),
-      ...(accentColor !== undefined && { accentColor }),
-      ...(address !== undefined && { address }),
-      ...(city !== undefined && { city }),
-      ...(state !== undefined && { state }),
-      ...(zip !== undefined && { zip }),
-      ...(phone !== undefined && { phone }),
-      ...(email !== undefined && { email }),
-      ...(website !== undefined && { website }),
-      ...(active !== undefined && { active }),
-    },
-  });
-
-  return NextResponse.json(hoa);
-}
+);
 
 // DELETE /api/hoas/[id] — deactivate (soft delete) an HOA
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+export const DELETE = handle(
+  "DELETE /api/hoas/[id]",
+  async (_req: Request, { params }: Ctx) => {
+    await requireSuperadmin();
 
-  if (!user || user.role !== "superadmin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const { id } = await params;
+
+    const existing = await prisma.hOA.findUnique({ where: { id } });
+    if (!existing) throw new ApiError(404, "HOA not found.");
+
+    // Soft delete — set active: false rather than destroying data
+    const hoa = await prisma.hOA.update({
+      where: { id },
+      data: { active: false },
+    });
+
+    return NextResponse.json({ success: true, hoa });
   }
-
-  const { id } = await params;
-
-  // Soft delete — set active: false rather than destroying data
-  const hoa = await prisma.hOA.update({
-    where: { id },
-    data: { active: false },
-  });
-
-  return NextResponse.json({ success: true, hoa });
-}
+);

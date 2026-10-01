@@ -1,98 +1,58 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAudit } from "@/lib/audit";
+import { FILE_META_SELECT, mayOpen, presentDocument } from "@/lib/documents";
+import { ApiError, getSessionUser, handle } from "@/lib/api";
 import type { UserRole } from "@/types";
 
-const REDACTION_PATTERNS: [RegExp, string][] = [
-  [/\b\d{3}-\d{2}-\d{4}\b/g, "***-**-****"],
-  [/\$[\d,]+\.\d{2}/g, "[$REDACTED]"],
-  [/\b\d{10,16}\b/g, "[ACCT-REDACTED]"],
-  [/\b(diagnosis|treatment|disability)\b/gi, "[MEDICAL-REDACTED]"],
-];
+type Ctx = { params: Promise<{ id: string }> };
 
-function redactContent(content: string): string {
-  let result = content;
-  for (const [pattern, replacement] of REDACTION_PATTERNS) {
-    result = result.replace(pattern, replacement);
-  }
-  return result;
-}
-
-const RESIDENT_ACCESSIBLE = new Set([
-  "governing",
-  "financial",
-  "meetings",
-  "contracts",
-  "architectural",
-  "insurance",
-  "violations",
-]);
-const PUBLIC_ACCESSIBLE = new Set(["governing", "meetings"]);
-
-function canAccessCategory(category: string, role: UserRole): boolean {
-  if (role === "admin" || role === "superadmin") return true;
-  if (role === "resident") return RESIDENT_ACCESSIBLE.has(category);
-  return PUBLIC_ACCESSIBLE.has(category);
-}
-
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
+// GET /api/docs/[id] — one document, redacted for the viewer. Visitors may
+// read public documents; signed-in access (and blocked attempts) is written
+// to the audit trail.
+export const GET = handle(
+  "GET /api/docs/[id]",
+  async (req: Request, { params }: Ctx) => {
     const { id } = await params;
-    const session = await getServerSession(authOptions);
-    const user = session?.user as
-      | { id: string; role: string; hoaId: string }
-      | undefined;
+    const user = await getSessionUser();
 
-    if (!user)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const doc = await prisma.document.findFirst({
-      where: { id, hoaId: user.hoaId },
+    const doc = await prisma.document.findUnique({
+      where: { id },
+      include: { file: { select: FILE_META_SELECT } },
     });
 
-    if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    const role = user.role as UserRole;
-
-    // Blocked — log the attempt and return 403
-    if (!canAccessCategory(doc.category, role)) {
-      await prisma.auditLog.create({
-        data: {
-          hoaId: user.hoaId,
-          userId: user.id,
-          action: "UNAUTHORIZED_ACCESS_ATTEMPT",
-          documentId: doc.id,
-          documentTitle: doc.title,
-        },
-      });
-      return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+    // Another community's document is reported as missing, not forbidden,
+    // so its existence isn't revealed.
+    if (!doc) throw new ApiError(404, "Not found");
+    if (user && user.role !== "superadmin" && doc.hoaId !== user.hoaId) {
+      throw new ApiError(404, "Not found");
     }
 
-    // Allowed — log the view
-    await prisma.auditLog.create({
-      data: {
-        hoaId: user.hoaId,
+    if (!mayOpen(doc, user)) {
+      if (!user) throw new ApiError(401, "Sign in to view this document.");
+      await writeAudit({
+        hoaId: doc.hoaId,
+        userId: user.id,
+        action: "UNAUTHORIZED_ACCESS_ATTEMPT",
+        documentId: doc.id,
+        documentTitle: doc.title,
+        req,
+      });
+      throw new ApiError(403, "Access Denied");
+    }
+
+    if (user) {
+      await writeAudit({
+        hoaId: doc.hoaId,
         userId: user.id,
         action: "VIEW",
         documentId: doc.id,
         documentTitle: doc.title,
-      },
-    });
+        req,
+      });
+    }
 
-    const content =
-      role === "admin" || role === "superadmin"
-        ? doc.content
-        : redactContent(doc.content);
-
-    return NextResponse.json({ ...doc, content }, { status: 200 });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+    const role = (user?.role ?? "public") as UserRole;
+    return NextResponse.json(presentDocument(doc, role));
   }
-}
+);

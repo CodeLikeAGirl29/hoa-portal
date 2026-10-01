@@ -66,7 +66,7 @@ export function Header() {
                   {hoaName}
                 </div>
               )}
-              <div className="text-[10px] text-gray-400 tracking-widest uppercase hidden sm:block">
+              <div className="text-[10px] text-gray-600 tracking-widest uppercase hidden sm:block">
                 {hoaCity} · F.S. 720.303
               </div>
             </div>
@@ -99,15 +99,14 @@ export function Header() {
                   <div className="text-sm font-medium text-gray-800 leading-tight">
                     {user.displayName}
                   </div>
-                  <div className="text-xs text-gray-400">{user.email}</div>
+                  <div className="text-xs text-gray-600">{user.email}</div>
                 </div>
                 <RoleBadge role={role} accentColor={accent} />
                 <Link
                   href="/profile"
                   className="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:bg-gray-100 border border-gray-200 no-underline transition-all"
-                  title="Profile"
                 >
-                  👤
+                  Profile
                 </Link>
                 <button
                   onClick={() => signOut({ callbackUrl: "/login" })}
@@ -123,7 +122,8 @@ export function Header() {
           <button
             className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent"
             onClick={() => setMenuOpen((o) => !o)}
-            aria-label="Toggle menu"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
           >
             <span
               className={`block w-5 h-0.5 bg-gray-600 transition-all duration-200 ${menuOpen ? "rotate-45 translate-y-2" : ""}`}
@@ -182,7 +182,7 @@ export function Header() {
                     <div className="font-semibold text-sm text-gray-900 truncate">
                       {user.displayName}
                     </div>
-                    <div className="text-xs text-gray-400 truncate">
+                    <div className="text-xs text-gray-600 truncate">
                       {user.email}
                     </div>
                   </div>
@@ -197,7 +197,7 @@ export function Header() {
 
               {(isAdmin || isSuperAdmin) && (
                 <>
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 pt-3 pb-1">
+                  <div className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-3 pt-3 pb-1">
                     Admin
                   </div>
                   {adminLinks.map((l) => (
@@ -214,7 +214,7 @@ export function Header() {
 
               {!isGuest && (
                 <>
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 pt-3 pb-1">
+                  <div className="text-[10px] font-bold text-gray-600 uppercase tracking-widest px-3 pt-3 pb-1">
                     Account
                   </div>
                   <MobileNavLink

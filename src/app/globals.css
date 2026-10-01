@@ -5,22 +5,43 @@
 @layer base {
   body {
     @apply bg-slate-50 text-slate-900 antialiased selection:bg-hoa-blue/10;
-    /* Subtle geometric grid backdrop popular in high-end dev dashboards */
-    background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
-    background-size: 24px 24px;
+  }
+
+  /* Page titles are set in the reading serif; everything else is sans. */
+  h1 {
+    font-family: theme("fontFamily.serif");
   }
 }
 
-/* Crisp focus indicator for accessibility compliance */
+/* Visible keyboard focus everywhere, including fields that hide the
+   browser's default outline. */
 :focus-visible {
-  outline: 2px solid #185FA5;
+  outline: 2px solid #185fa5;
   outline-offset: 2px;
 }
 
-/* Ultra-clean modern scrollbar */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #185fa5;
+  outline-offset: 0;
+}
+
+/* Respect "reduce motion" system settings. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {

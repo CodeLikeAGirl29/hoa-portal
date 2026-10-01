@@ -79,7 +79,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-50">
       {/* Hero banner */}
       <div
-        className="px-8 py-8"
+        className="px-4 sm:px-8 py-8"
         style={{
           background: `linear-gradient(135deg, ${accent}, ${accentDark})`,
         }}
@@ -181,7 +181,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-8 py-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
         {loading ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {[...Array(3)].map((_, i) => (
@@ -202,7 +202,7 @@ export default function AdminDashboard() {
               </div>
               <div className="p-3">
                 {stats?.documentsByCategory.length === 0 ? (
-                  <div className="py-8 text-center text-gray-300 text-sm">
+                  <div className="py-8 text-center text-gray-500 text-sm">
                     No documents yet
                   </div>
                 ) : (
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
               </div>
               <div className="divide-y divide-gray-50">
                 {!stats?.recentActivity.length ? (
-                  <div className="py-8 text-center text-gray-300 text-sm">
+                  <div className="py-8 text-center text-gray-500 text-sm">
                     No activity yet
                   </div>
                 ) : (
@@ -266,7 +266,7 @@ export default function AdminDashboard() {
                           <div className="text-sm text-gray-800 truncate">
                             {item.documentTitle ?? "—"}
                           </div>
-                          <div className="text-xs text-gray-400 truncate">
+                          <div className="text-xs text-gray-600 truncate">
                             {item.userEmail}
                           </div>
                         </div>
@@ -277,7 +277,7 @@ export default function AdminDashboard() {
                           >
                             {item.action}
                           </span>
-                          <div className="text-[11px] text-gray-300 mt-0.5">
+                          <div className="text-[11px] text-gray-500 mt-0.5">
                             {new Date(item.timestamp).toLocaleDateString()}
                           </div>
                         </div>
@@ -333,7 +333,7 @@ export default function AdminDashboard() {
                       <span className="text-sm font-semibold text-gray-800">
                         {a.label}
                       </span>
-                      <span className="text-xs text-gray-400">{a.desc}</span>
+                      <span className="text-xs text-gray-600">{a.desc}</span>
                     </Link>
                   ))}
                 </div>

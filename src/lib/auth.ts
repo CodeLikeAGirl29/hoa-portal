@@ -4,6 +4,16 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+/**
+ * Error codes `authorize` can throw. NextAuth hands the message back to the
+ * login page as `result.error`, so the page can tell "wrong password" apart
+ * from "the database is down or not set up".
+ */
+export const AUTH_ERRORS = {
+  databaseUnavailable: "DatabaseUnavailable",
+  databaseNotMigrated: "DatabaseNotMigrated",
+} as const;
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -13,14 +23,30 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) return null;
+        const email = credentials?.email?.trim();
+        if (!email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-          include: { hoa: true },
-        });
+        let user;
+        try {
+          user = await prisma.user.findFirst({
+            where: { email: { equals: email, mode: "insensitive" } },
+            include: { hoa: true },
+          });
+        } catch (err) {
+          // Without this, a database failure looks identical to a wrong
+          // password — the login page just says "invalid email or password".
+          console.error("Login failed — database error:", err);
+          const code = (err as any)?.code;
+          throw new Error(
+            code === "P2021" || code === "P2022"
+              ? AUTH_ERRORS.databaseNotMigrated
+              : AUTH_ERRORS.databaseUnavailable
+          );
+        }
 
         if (!user || !user.active) return null;
+        // A user whose community was deactivated can no longer sign in.
+        if (user.hoa && !user.hoa.active) return null;
 
         const valid = await bcrypt.compare(credentials.password, user.password);
         if (!valid) return null;

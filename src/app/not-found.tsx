@@ -8,7 +8,7 @@ export default function NotFound() {
         <div className="text-8xl mb-6">⚓</div>
         <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
         <p className="text-xl text-gray-500 mb-2">Page not found</p>
-        <p className="text-gray-400 mb-8">
+        <p className="text-gray-600 mb-8">
           The page you're looking for doesn't exist or you don't have permission
           to view it.
         </p>
@@ -27,7 +27,7 @@ export default function NotFound() {
             Sign In
           </Link>
         </div>
-        <p className="text-xs text-gray-300 mt-8">
+        <p className="text-xs text-gray-500 mt-8">
           Florida HOA Portal · F.S. 720.303 Compliant
         </p>
       </div>

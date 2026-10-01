@@ -50,6 +50,14 @@ export interface HOADocument {
   pages: number | null;
   uploadedBy: string | null;
   isMandatoryRecord: boolean;
+  /** The uploaded file, when the document has one. */
+  file?: DocumentFileInfo | null;
+}
+
+export interface DocumentFileInfo {
+  fileName: string;
+  mimeType: string;
+  size: number;
 }
 
 export interface RedactedDocument extends HOADocument {

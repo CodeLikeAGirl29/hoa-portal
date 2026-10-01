@@ -15,7 +15,16 @@ const config: Config = {
         "hoa-green": "#3B6D11",
       },
       fontFamily: {
-        serif: ["Georgia", "Times New Roman", "serif"],
+        // Loaded in src/app/layout.tsx; the fallbacks cover the first paint.
+        sans: [
+          "var(--font-sans)",
+          "ui-sans-serif",
+          "system-ui",
+          "-apple-system",
+          "Segoe UI",
+          "sans-serif",
+        ],
+        serif: ["var(--font-serif)", "Georgia", "Times New Roman", "serif"],
       },
     },
   },

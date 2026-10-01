@@ -58,7 +58,7 @@ export default function AccountPage() {
     <div className="min-h-screen flex flex-col bg-slate-50">
       <Header />
 
-      <main className="flex-1 max-w-xl mx-auto w-full px-8 py-10">
+      <main className="flex-1 max-w-xl mx-auto w-full px-4 sm:px-8 py-10">
         {/* Profile card */}
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
           <div
@@ -78,8 +78,8 @@ export default function AccountPage() {
             </div>
             <div>
               <div className="font-bold text-gray-900">{user.displayName}</div>
-              <div className="text-sm text-gray-400">{user.email}</div>
-              <div className="text-xs text-gray-300 mt-0.5 capitalize">
+              <div className="text-sm text-gray-600">{user.email}</div>
+              <div className="text-xs text-gray-500 mt-0.5 capitalize">
                 {user.role} · {hoa?.name ?? "Portal"}
               </div>
             </div>
@@ -92,7 +92,7 @@ export default function AccountPage() {
             <h2 className="text-sm font-bold text-gray-900 m-0">
               Change Password
             </h2>
-            <p className="text-xs text-gray-400 m-0 mt-0.5">
+            <p className="text-xs text-gray-600 m-0 mt-0.5">
               Choose a strong password of at least 8 characters.
             </p>
           </div>
@@ -118,7 +118,7 @@ export default function AccountPage() {
               },
             ].map(({ label, value, onChange, autoComplete }) => (
               <div key={label}>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                <label className="block text-sm font-medium text-gray-800 mb-1.5">
                   {label}
                 </label>
                 <input

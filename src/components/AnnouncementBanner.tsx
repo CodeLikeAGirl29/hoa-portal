@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { Overlay } from "@/components/ui/Modal";
 
 interface Announcement {
   id: string;
@@ -50,36 +51,38 @@ function AnnouncementForm({ initial, onSave, onClose }: AnnouncementFormProps) {
           expiresAt: expiresAt || null,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Could not save the announcement.");
+      }
       onSave();
       onClose();
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message ?? "Could not save the announcement.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <Overlay onClose={onClose} label={initial ? "Edit announcement" : "New announcement"}>
       <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <h2 className="text-base font-bold text-gray-900 m-0">
             {initial ? "Edit Announcement" : "New Announcement"}
           </h2>
           <button
+            type="button"
+            aria-label="Close"
             onClick={onClose}
-            className="text-gray-400 text-2xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent"
+            className="text-gray-600 text-2xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent"
           >
             ×
           </button>
         </div>
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+            <label className="block text-sm font-medium text-gray-800 mb-1.5">
               Title *
             </label>
             <input
@@ -92,7 +95,7 @@ function AnnouncementForm({ initial, onSave, onClose }: AnnouncementFormProps) {
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+            <label className="block text-sm font-medium text-gray-800 mb-1.5">
               Message *
             </label>
             <textarea
@@ -106,7 +109,7 @@ function AnnouncementForm({ initial, onSave, onClose }: AnnouncementFormProps) {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+              <label className="block text-sm font-medium text-gray-800 mb-1.5">
                 Expires On (optional)
               </label>
               <input
@@ -160,7 +163,7 @@ function AnnouncementForm({ initial, onSave, onClose }: AnnouncementFormProps) {
           </div>
         </form>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
@@ -174,19 +177,40 @@ export function AnnouncementBanner() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Announcement | null>(null);
 
+  const [loadError, setLoadError] = useState("");
+
   const fetchAnnouncements = async () => {
-    const res = await fetch("/api/announcements");
-    if (res.ok) setAnnouncements(await res.json());
+    try {
+      const res = await fetch("/api/announcements");
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Could not load announcements.");
+      }
+      setAnnouncements(Array.isArray(data) ? data : []);
+      setLoadError("");
+    } catch (err: any) {
+      setLoadError(err.message ?? "Could not load announcements.");
+    }
   };
 
   useEffect(() => {
+    // Visitors have no community, so there is nothing to ask for.
+    if (role === "public") return;
     fetchAnnouncements();
-  }, []);
+  }, [role]);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this announcement?")) return;
-    await fetch(`/api/announcements/${id}`, { method: "DELETE" });
-    fetchAnnouncements();
+    try {
+      const res = await fetch(`/api/announcements/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Could not delete the announcement.");
+      }
+      fetchAnnouncements();
+    } catch (err: any) {
+      alert(err.message ?? "Could not delete the announcement.");
+    }
   }
 
   const visible = announcements.filter((a) => !dismissed.has(a.id));
@@ -206,8 +230,18 @@ export function AnnouncementBanner() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer border-0 transition-all"
             style={{ background: accent }}
           >
-            📢 Post Announcement
+            Post announcement
           </button>
+        </div>
+      )}
+
+      {/* Only admins can act on a load failure, so only they see it. */}
+      {isAdmin && loadError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700"
+        >
+          <span>⚠️</span> <span>{loadError}</span>
         </div>
       )}
 
@@ -233,7 +267,7 @@ export function AnnouncementBanner() {
                 <p className="text-sm text-gray-600 mt-1 m-0 leading-relaxed">
                   {ann.body}
                 </p>
-                <div className="text-xs text-gray-400 mt-2">
+                <div className="text-xs text-gray-600 mt-2">
                   {ann.author.name ?? ann.author.email} ·{" "}
                   {new Date(ann.createdAt).toLocaleDateString()}
                   {ann.expiresAt && (
@@ -253,24 +287,27 @@ export function AnnouncementBanner() {
                       setEditing(ann);
                       setShowForm(true);
                     }}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 cursor-pointer border-0 bg-transparent text-sm"
+                    aria-label={`Edit announcement: ${ann.title}`}
+                    className="px-2 h-8 flex items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100 cursor-pointer border-0 bg-transparent text-xs font-semibold"
                   >
-                    ✏️
+                    Edit
                   </button>
                   <button
                     onClick={() => handleDelete(ann.id)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 cursor-pointer border-0 bg-transparent text-sm"
+                    aria-label={`Delete announcement: ${ann.title}`}
+                    className="px-2 h-8 flex items-center justify-center rounded-lg text-red-700 hover:bg-red-50 cursor-pointer border-0 bg-transparent text-xs font-semibold"
                   >
-                    🗑
+                    Delete
                   </button>
                 </>
               )}
               {!ann.pinned && (
                 <button
                   onClick={() => setDismissed((d) => new Set([...d, ann.id]))}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:bg-gray-100 cursor-pointer border-0 bg-transparent text-lg leading-none"
+                  aria-label={`Dismiss announcement: ${ann.title}`}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 cursor-pointer border-0 bg-transparent text-lg leading-none"
                 >
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               )}
             </div>

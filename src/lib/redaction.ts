@@ -24,7 +24,7 @@ export function canAccess(
   doc: Pick<HOADocument, "isPublic" | "isAccessibleToResidents">,
   role: UserRole
 ): boolean {
-  if (role === "admin") return true;
+  if (role === "admin" || role === "superadmin") return true;
   if (role === "resident") return doc.isAccessibleToResidents;
   return doc.isPublic;
 }
@@ -52,7 +52,7 @@ export function redactDocument(
   doc: HOADocument,
   role: UserRole
 ): RedactedDocument {
-  if (role === "admin") {
+  if (role === "admin" || role === "superadmin") {
     return { ...doc, wasRedacted: false, redactedFields: [] };
   }
 

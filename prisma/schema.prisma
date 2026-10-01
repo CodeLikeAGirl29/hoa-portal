@@ -7,14 +7,14 @@ datasource db {
 }
 
 model HOA {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
-  slug        String  @unique
+  slug        String   @unique
   logoUrl     String?
-  accentColor String  @default("#185FA5")
+  accentColor String   @default("#185FA5")
   address     String?
   city        String?
-  state       String  @default("FL")
+  state       String   @default("FL")
   zip         String?
   phone       String?
   email       String?
@@ -43,26 +43,46 @@ model User {
   hoa           HOA?           @relation(fields: [hoaId], references: [id])
   logs          AuditLog[]
   announcements Announcement[]
+  tokens        AuthToken[]
+
+  @@index([hoaId])
 }
 
 model Document {
-  id                     String   @id @default(uuid())
-  hoaId                  String
-  title                  String
-  content                String
-  category               String
-  isPublic               Boolean  @default(false)
-  isAccessibleToResidents Boolean @default(true)
-  requiresLogin          Boolean  @default(true)
-  isMandatoryRecord      Boolean  @default(false)
-  fileSize               String?
-  pages                  Int?
-  uploadedBy             String?
-  uploadDate             DateTime @default(now())
-  lastModified           DateTime @updatedAt
-  createdAt              DateTime @default(now())
+  id                      String   @id @default(uuid())
+  hoaId                   String
+  title                   String
+  content                 String
+  category                String
+  isPublic                Boolean  @default(false)
+  isAccessibleToResidents Boolean  @default(true)
+  requiresLogin           Boolean  @default(true)
+  isMandatoryRecord       Boolean  @default(false)
+  fileSize                String?
+  pages                   Int?
+  uploadedBy              String?
+  uploadDate              DateTime @default(now())
+  lastModified            DateTime @updatedAt
+  createdAt               DateTime @default(now())
 
-  hoa HOA @relation(fields: [hoaId], references: [id])
+  hoa  HOA           @relation(fields: [hoaId], references: [id])
+  file DocumentFile?
+
+  @@index([hoaId, category])
+}
+
+// The uploaded file behind a document. Kept in its own table so listing
+// documents never loads file contents.
+model DocumentFile {
+  id         String   @id @default(uuid())
+  documentId String   @unique
+  fileName   String
+  mimeType   String
+  size       Int
+  data       Bytes
+  uploadedAt DateTime @default(now())
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
@@ -78,19 +98,40 @@ model AuditLog {
 
   hoa  HOA  @relation(fields: [hoaId], references: [id])
   user User @relation(fields: [userId], references: [id])
+
+  @@index([hoaId, timestamp])
+  @@index([userId])
 }
 
 model Announcement {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   hoaId     String
   authorId  String
   title     String
   body      String
-  pinned    Boolean  @default(false)
+  pinned    Boolean   @default(false)
   expiresAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   hoa    HOA  @relation(fields: [hoaId], references: [id])
   author User @relation(fields: [authorId], references: [id])
+
+  @@index([hoaId, pinned, createdAt])
+}
+
+// One-time links for setting a password: "reset" (forgot password) or
+// "invite" (new member). Only a hash of the token is stored.
+model AuthToken {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

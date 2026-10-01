@@ -1,161 +1,118 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { writeAudit } from "@/lib/audit";
+import { FILE_META_SELECT } from "@/lib/documents";
+import { ApiError, handle, readJson, requireAdmin } from "@/lib/api";
 
-// POST /api/documents/[id] — (kept from your original; note: creation normally
-// goes through /api/documents, this mirrors that shape)
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+type Ctx = { params: Promise<{ id: string }> };
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (!user.hoaId) {
-    return NextResponse.json({ error: "No HOA assigned." }, { status: 400 });
-  }
-
-  const body = await req.json();
-  const {
-    title,
-    category,
-    content,
-    isPublic,
-    isAccessibleToResidents,
-    requiresLogin,
-    isMandatoryRecord,
-    fileSize,
-    pages,
-  } = body;
-
-  if (!title || !category || !content) {
-    return NextResponse.json(
-      { error: "Title, category, and content are required." },
-      { status: 400 }
-    );
-  }
-
-  const doc = await prisma.document.create({
-    data: {
-      hoaId: user.hoaId,
-      title: title.trim(),
-      category,
-      content: content.trim(),
-      isPublic: isPublic ?? false,
-      isAccessibleToResidents: isAccessibleToResidents ?? true,
-      requiresLogin: requiresLogin ?? true,
-      isMandatoryRecord: isMandatoryRecord ?? false,
-      fileSize: fileSize || null,
-      pages: pages || null,
-      uploadedBy: user.id,
-    },
-  });
-
-  return NextResponse.json(doc, { status: 201 });
-}
-
-// Helper: authorize + confirm the doc belongs to this admin's HOA
+// Confirms the caller is an admin and the document is theirs to change.
+// Admins are limited to their own HOA; superadmins are unrestricted.
 async function authorizeDocAccess(id: string) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+  const user = await requireAdmin();
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return { error: "Forbidden", status: 403 as const, user: null, doc: null };
+  const doc = await prisma.document.findUnique({
+    where: { id },
+    include: { file: { select: FILE_META_SELECT } },
+  });
+  if (!doc) throw new ApiError(404, "Not found");
+
+  if (user.role !== "superadmin" && doc.hoaId !== user.hoaId) {
+    throw new ApiError(403, "Forbidden");
   }
 
-  const doc = await prisma.document.findUnique({ where: { id } });
-  if (!doc) {
-    return { error: "Not found", status: 404 as const, user: null, doc: null };
-  }
-
-  // Admins can only touch their own HOA's documents; superadmins are unrestricted
-  if (user.role === "admin" && doc.hoaId !== user.hoaId) {
-    return { error: "Forbidden", status: 403 as const, user: null, doc: null };
-  }
-
-  return { error: null, status: 200 as const, user, doc };
+  return { user, doc };
 }
 
 // PATCH /api/documents/[id] — update an existing document
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const auth = await authorizeDocAccess(id);
-  if (auth.error || !auth.user || !auth.doc) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
-  }
+export const PATCH = handle(
+  "PATCH /api/documents/[id]",
+  async (req: Request, { params }: Ctx) => {
+    const { id } = await params;
+    const { user, doc } = await authorizeDocAccess(id);
 
-  const body = await req.json();
-  const {
-    title,
-    category,
-    content,
-    isPublic,
-    isAccessibleToResidents,
-    requiresLogin,
-    isMandatoryRecord,
-    fileSize,
-    pages,
-  } = body;
+    const {
+      title,
+      category,
+      content,
+      isPublic,
+      isAccessibleToResidents,
+      requiresLogin,
+      isMandatoryRecord,
+      fileSize,
+      pages,
+      hasFile = false,
+    } = await readJson(req);
 
-  const updated = await prisma.document.update({
-    where: { id },
-    data: {
-      ...(title !== undefined && { title: title.trim() }),
-      ...(category !== undefined && { category }),
-      ...(content !== undefined && { content: content.trim() }),
-      ...(isPublic !== undefined && { isPublic }),
-      ...(isAccessibleToResidents !== undefined && { isAccessibleToResidents }),
-      ...(requiresLogin !== undefined && { requiresLogin }),
-      ...(isMandatoryRecord !== undefined && { isMandatoryRecord }),
-      ...(fileSize !== undefined && { fileSize: fileSize || null }),
-      ...(pages !== undefined && { pages: pages || null }),
-    },
-  });
+    if (title !== undefined && !String(title).trim()) {
+      throw new ApiError(400, "Title cannot be empty.");
+    }
+    // Text may be cleared only when a file carries the document instead.
+    if (
+      content !== undefined &&
+      !String(content).trim() &&
+      !doc.file &&
+      !hasFile
+    ) {
+      throw new ApiError(400, "Attach a file or enter the document text.");
+    }
 
-  await prisma.auditLog.create({
-    data: {
-      hoaId: auth.doc.hoaId,
-      userId: auth.user.id,
+    let pageCount: number | null | undefined;
+    if (pages !== undefined) {
+      pageCount = pages ? Number.parseInt(String(pages), 10) : null;
+      if (pageCount !== null && (Number.isNaN(pageCount) || pageCount < 0)) {
+        throw new ApiError(400, "Pages must be a whole number.");
+      }
+    }
+
+    const updated = await prisma.document.update({
+      where: { id },
+      data: {
+        ...(title !== undefined && { title: String(title).trim() }),
+        ...(category !== undefined && { category }),
+        ...(content !== undefined && { content: String(content).trim() }),
+        ...(isPublic !== undefined && { isPublic }),
+        ...(isAccessibleToResidents !== undefined && {
+          isAccessibleToResidents,
+        }),
+        ...(requiresLogin !== undefined && { requiresLogin }),
+        ...(isMandatoryRecord !== undefined && { isMandatoryRecord }),
+        ...(fileSize !== undefined && { fileSize: fileSize || null }),
+        ...(pageCount !== undefined && { pages: pageCount }),
+      },
+    });
+
+    await writeAudit({
+      hoaId: doc.hoaId,
+      userId: user.id,
       action: "UPDATE",
       documentId: updated.id,
       documentTitle: updated.title,
-      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown",
-      userAgent: req.headers.get("user-agent") ?? null,
-    },
-  });
+      req,
+    });
 
-  return NextResponse.json(updated);
-}
-
-// DELETE /api/documents/[id] — remove a document
-export async function DELETE(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params;
-  const auth = await authorizeDocAccess(id);
-  if (auth.error || !auth.user || !auth.doc) {
-    return NextResponse.json({ error: auth.error }, { status: auth.status });
+    return NextResponse.json(updated);
   }
+);
 
-  await prisma.document.delete({ where: { id } });
+// DELETE /api/documents/[id] — remove a document (and its file, by cascade)
+export const DELETE = handle(
+  "DELETE /api/documents/[id]",
+  async (req: Request, { params }: Ctx) => {
+    const { id } = await params;
+    const { user, doc } = await authorizeDocAccess(id);
 
-  await prisma.auditLog.create({
-    data: {
-      hoaId: auth.doc.hoaId,
-      userId: auth.user.id,
+    await prisma.document.delete({ where: { id } });
+
+    await writeAudit({
+      hoaId: doc.hoaId,
+      userId: user.id,
       action: "DELETE",
-      documentId: auth.doc.id,
-      documentTitle: auth.doc.title,
-      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown",
-      userAgent: req.headers.get("user-agent") ?? null,
-    },
-  });
+      documentId: doc.id,
+      documentTitle: doc.title,
+      req,
+    });
 
-  return NextResponse.json({ success: true });
-}
+    return NextResponse.json({ success: true });
+  }
+);

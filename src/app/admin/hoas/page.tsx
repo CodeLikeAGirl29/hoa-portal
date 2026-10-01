@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { Header } from "@/components/layout/Header";
+import { Overlay } from "@/components/ui/Modal";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface HOARecord {
@@ -120,7 +122,7 @@ function HOAFormModal({
     half?: boolean;
   }) => (
     <div className={half ? "col-span-1" : "col-span-2"}>
-      <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+      <label className="block text-sm font-medium text-gray-800 mb-1">
         {label}
       </label>
       <input
@@ -134,10 +136,7 @@ function HOAFormModal({
   );
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
+    <Overlay onClose={onClose} label={isEdit ? "Edit community" : "Add community"}>
       <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-2xl">
@@ -145,15 +144,17 @@ function HOAFormModal({
             <h2 className="text-base font-bold text-gray-900 m-0">
               {isEdit ? "Edit HOA Community" : "Add New HOA Community"}
             </h2>
-            <p className="text-xs text-gray-400 m-0 mt-0.5">
+            <p className="text-xs text-gray-600 m-0 mt-0.5">
               {isEdit
                 ? "Update community details and branding."
                 : "Create a new Florida HOA community on the portal."}
             </p>
           </div>
           <button
+            type="button"
+            aria-label="Close"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent"
+            className="text-gray-600 hover:text-gray-600 text-2xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 cursor-pointer border-0 bg-transparent"
           >
             ×
           </button>
@@ -177,7 +178,7 @@ function HOAFormModal({
               >
                 {form.name || "Community Name"}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-gray-600">
                 {form.city || "City"}, {form.state} · {form.slug || "slug"}
               </div>
             </div>
@@ -191,7 +192,7 @@ function HOAFormModal({
           {/* Fields */}
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+              <label className="block text-sm font-medium text-gray-800 mb-1">
                 Community Name *
               </label>
               <input
@@ -208,9 +209,9 @@ function HOAFormModal({
             </div>
 
             <div className="col-span-1">
-              <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+              <label className="block text-sm font-medium text-gray-800 mb-1">
                 Slug *{" "}
-                <span className="normal-case text-gray-400 font-normal">
+                <span className="normal-case text-gray-600 font-normal">
                   (url-friendly)
                 </span>
               </label>
@@ -230,7 +231,7 @@ function HOAFormModal({
             </div>
 
             <div className="col-span-1">
-              <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide">
+              <label className="block text-sm font-medium text-gray-800 mb-1">
                 Accent Color
               </label>
               <div className="flex gap-2 items-center">
@@ -308,7 +309,7 @@ function HOAFormModal({
           </div>
         </form>
       </div>
-    </div>
+    </Overlay>
   );
 }
 
@@ -353,7 +354,7 @@ function HOACard({
                 </span>
               )}
             </div>
-            <div className="text-xs text-gray-400 font-mono mt-0.5">
+            <div className="text-xs text-gray-600 font-mono mt-0.5">
               {hoa.slug}
             </div>
             {hoa.city && (
@@ -370,19 +371,19 @@ function HOACard({
             <div className="text-lg font-bold text-gray-800">
               {hoa._count.users}
             </div>
-            <div className="text-[11px] text-gray-400">Members</div>
+            <div className="text-[11px] text-gray-600">Members</div>
           </div>
           <div className="bg-gray-50 rounded-lg px-3 py-2 text-center">
             <div className="text-lg font-bold text-gray-800">
               {hoa._count.documents}
             </div>
-            <div className="text-[11px] text-gray-400">Documents</div>
+            <div className="text-[11px] text-gray-600">Documents</div>
           </div>
         </div>
 
         {/* Contact */}
         {(hoa.email || hoa.phone) && (
-          <div className="text-xs text-gray-400 space-y-0.5 mb-4">
+          <div className="text-xs text-gray-600 space-y-0.5 mb-4">
             {hoa.email && <div>✉️ {hoa.email}</div>}
             {hoa.phone && <div>📞 {hoa.phone}</div>}
           </div>
@@ -491,13 +492,14 @@ export default function ManageHOAsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Page header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <Header />
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-6">
         <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight m-0">
               🏘️ HOA Communities
             </h1>
-            <p className="text-sm text-gray-400 mt-1 m-0">
+            <p className="text-sm text-gray-600 mt-1 m-0">
               Manage all Florida HOA communities on the portal
             </p>
           </div>
@@ -514,7 +516,7 @@ export default function ManageHOAsPage() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-8 py-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
         {/* Stats */}
         <div className="flex gap-4 mb-6 flex-wrap">
           {[
@@ -592,7 +594,7 @@ export default function ManageHOAsPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-gray-300">
+          <div className="text-center py-20 text-gray-500">
             <div className="text-5xl mb-4">🏘️</div>
             <div className="text-lg font-medium">
               {search

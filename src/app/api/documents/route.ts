@@ -1,91 +1,88 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmail, newDocumentEmailHtml } from "@/lib/email";
-import { redactDocument } from "@/lib/redaction";
+import { sendEmailToEach, newDocumentEmailHtml } from "@/lib/email";
+import { FILE_META_SELECT, presentDocument } from "@/lib/documents";
+import { writeAudit } from "@/lib/audit";
+import {
+  ApiError,
+  getSessionUser,
+  handle,
+  readJson,
+  requireAdmin,
+  resolveHoaId,
+} from "@/lib/api";
+import type { UserRole } from "@/types";
 
-export async function GET(req: Request) {
-  try {
-    const session = await getServerSession(authOptions);
-    const sessionUser = session?.user as any;
-    const role = sessionUser?.role ?? "public";
-    const hoaId = sessionUser?.hoaId as string | null;
+const CATEGORIES: readonly string[] = [
+  "governing",
+  "financial",
+  "meetings",
+  "contracts",
+  "architectural",
+  "insurance",
+  "violations",
+  "legal",
+];
 
-    const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search")?.toLowerCase() ?? "";
-    const category = searchParams.get("category") ?? "all";
-    const targetHoaId = hoaId ?? searchParams.get("hoaId");
-
-    if (!targetHoaId) {
-      return NextResponse.json(
-        { error: "No HOA context provided." },
-        { status: 400 }
-      );
-    }
-
-    const where: Record<string, unknown> = { hoaId: targetHoaId };
-    if (role === "public") where.isPublic = true;
-    else if (role === "resident") where.isAccessibleToResidents = true;
-    if (category !== "all") where.category = category;
-
-    const docs = await prisma.document.findMany({
-      where,
-      orderBy: [{ category: "asc" }, { uploadDate: "desc" }],
-    });
-
-    const filtered = search
-      ? docs.filter(
-          (d) =>
-            d.title.toLowerCase().includes(search) ||
-            d.category.toLowerCase().includes(search)
-        )
-      : docs;
-
-    const results = filtered.map((doc) =>
-      redactDocument(
-        {
-          id: doc.id,
-          hoaId: doc.hoaId,
-          title: doc.title,
-          category: doc.category as any,
-          content: doc.content,
-          isPublic: doc.isPublic,
-          isAccessibleToResidents: doc.isAccessibleToResidents,
-          requiresLogin: doc.requiresLogin,
-          uploadDate: doc.uploadDate.toISOString().split("T")[0],
-          lastModified: doc.lastModified.toISOString().split("T")[0],
-          fileSize: doc.fileSize,
-          pages: doc.pages,
-          uploadedBy: doc.uploadedBy,
-          isMandatoryRecord: doc.isMandatoryRecord,
-        },
-        role as any
-      )
-    );
-
-    return NextResponse.json(results);
-  } catch (error) {
-    console.error("GET /api/documents error:", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
-      { status: 500 }
-    );
+function toPages(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number.parseInt(String(value), 10);
+  if (Number.isNaN(n) || n < 0) {
+    throw new ApiError(400, "Pages must be a whole number.");
   }
+  return n;
 }
 
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+// GET /api/documents — documents the viewer may see.
+//   visitor     → public documents of ?hoaId=
+//   resident    → resident-accessible documents of their HOA
+//   admin       → everything in their HOA
+//   superadmin  → ?hoaId=, or every community when none is given
+export const GET = handle("GET /api/documents", async (req: Request) => {
+  const user = await getSessionUser();
+  const role = (user?.role ?? "public") as UserRole;
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (!user.hoaId) {
-    return NextResponse.json({ error: "No HOA assigned." }, { status: 400 });
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search")?.trim().toLowerCase() ?? "";
+  const category = searchParams.get("category") ?? "all";
+  const requestedHoaId = searchParams.get("hoaId");
+
+  const targetHoaId = user
+    ? resolveHoaId(user, requestedHoaId)
+    : requestedHoaId;
+
+  if (!targetHoaId && role !== "superadmin") {
+    throw new ApiError(400, "No HOA context provided.");
   }
 
-  const body = await req.json();
+  const where: Record<string, unknown> = {};
+  if (targetHoaId) where.hoaId = targetHoaId;
+  if (role === "public") where.isPublic = true;
+  else if (role === "resident") where.isAccessibleToResidents = true;
+  if (category !== "all") where.category = category;
+
+  const docs = await prisma.document.findMany({
+    where,
+    orderBy: [{ category: "asc" }, { uploadDate: "desc" }],
+    include: { file: { select: FILE_META_SELECT } },
+  });
+
+  const filtered = search
+    ? docs.filter(
+        (d) =>
+          d.title.toLowerCase().includes(search) ||
+          d.category.toLowerCase().includes(search)
+      )
+    : docs;
+
+  return NextResponse.json(filtered.map((doc) => presentDocument(doc, role)));
+});
+
+// POST /api/documents — add a document (admin only).
+// The file itself, if any, is uploaded afterwards to /api/documents/[id]/file.
+export const POST = handle("POST /api/documents", async (req: Request) => {
+  const user = await requireAdmin();
+  const body = await readJson(req);
   const {
     title,
     category,
@@ -96,82 +93,88 @@ export async function POST(req: Request) {
     isMandatoryRecord,
     fileSize,
     pages,
+    hasFile = false,
     notifyResidents = true,
   } = body;
 
-  if (!title || !category || !content) {
-    return NextResponse.json(
-      { error: "Title, category, and content are required." },
-      { status: 400 }
+  const hoaId = resolveHoaId(user, body.hoaId);
+  if (!hoaId) {
+    throw new ApiError(
+      400,
+      "Your account isn't assigned to a community, so there is nowhere to file this document."
     );
   }
 
+  if (typeof title !== "string" || !title.trim() || !category) {
+    throw new ApiError(400, "Title and category are required.");
+  }
+  // A document needs something to read: an uploaded file, typed text, or both.
+  const text = typeof content === "string" ? content.trim() : "";
+  if (!text && !hasFile) {
+    throw new ApiError(400, "Attach a file or enter the document text.");
+  }
+  if (!CATEGORIES.includes(category)) {
+    throw new ApiError(400, "Unknown document category.");
+  }
+
+  const residentAccess = isAccessibleToResidents ?? true;
+  const publicAccess = isPublic ?? false;
+
   const doc = await prisma.document.create({
     data: {
-      hoaId: user.hoaId,
+      hoaId,
       title: title.trim(),
       category,
-      content: content.trim(),
-      isPublic: isPublic ?? false,
-      isAccessibleToResidents: isAccessibleToResidents ?? true,
+      content: text,
+      isPublic: publicAccess,
+      isAccessibleToResidents: residentAccess,
       requiresLogin: requiresLogin ?? true,
       isMandatoryRecord: isMandatoryRecord ?? false,
       fileSize: fileSize || null,
-      pages: pages || null,
+      pages: toPages(pages),
       uploadedBy: user.id,
     },
   });
 
-  // Log audit entry
-  await prisma.auditLog.create({
-    data: {
-      hoaId: user.hoaId,
-      userId: user.id,
-      action: "CREATE",
-      documentId: doc.id,
-      documentTitle: doc.title,
-      ipAddress: req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown",
-    },
+  await writeAudit({
+    hoaId,
+    userId: user.id,
+    action: "CREATE",
+    documentId: doc.id,
+    documentTitle: doc.title,
+    req,
   });
 
-  // Notify residents if this is a resident-accessible document
-  if (notifyResidents && (isAccessibleToResidents || isPublic)) {
+  // Tell residents, when the document is one they can actually open.
+  if (notifyResidents && (residentAccess || publicAccess)) {
     try {
       const [hoa, residents] = await Promise.all([
-        prisma.hOA.findUnique({ where: { id: user.hoaId } }),
+        prisma.hOA.findUnique({ where: { id: hoaId } }),
         prisma.user.findMany({
-          where: { hoaId: user.hoaId, role: "resident", active: true },
+          where: { hoaId, role: "resident", active: true },
           select: { email: true },
         }),
       ]);
 
       if (hoa && residents.length > 0) {
         const loginUrl = `${
-          process.env.NEXTAUTH_URL ?? "https://floridahoaportal.com"
+          process.env.NEXTAUTH_URL ?? "https://myflhoa.org"
         }/login`;
-        const uploaderUser = await prisma.user.findUnique({
-          where: { id: user.id },
-          select: { name: true, email: true },
-        });
 
-        // Send in batches to avoid rate limits
-        const emails = residents.map((r) => r.email);
-        const BATCH = 50;
-        for (let i = 0; i < emails.length; i += BATCH) {
-          await sendEmail({
-            to: emails.slice(i, i + BATCH),
-            subject: `New Document: ${doc.title} — ${hoa.name}`,
-            html: newDocumentEmailHtml({
-              hoaName: hoa.name,
-              accentColor: hoa.accentColor,
-              documentTitle: doc.title,
-              category: doc.category,
-              uploadedBy:
-                uploaderUser?.name ?? uploaderUser?.email ?? "Your HOA Admin",
-              loginUrl,
-            }),
-          });
-        }
+        // Sent as separate emails: a shared "to" line would show every
+        // resident's address to every other resident.
+        await sendEmailToEach(
+          residents.map((r) => r.email),
+          `New Document: ${doc.title} — ${hoa.name}`,
+          newDocumentEmailHtml({
+            hoaName: hoa.name,
+            accentColor: hoa.accentColor,
+            documentTitle: doc.title,
+            category: doc.category,
+            uploadedBy: user.name ?? user.email ?? "Your HOA Admin",
+            loginUrl,
+          })
+        );
       }
     } catch (emailErr) {
       // Don't fail the request if email fails
@@ -180,4 +183,4 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json(doc, { status: 201 });
-}
+});

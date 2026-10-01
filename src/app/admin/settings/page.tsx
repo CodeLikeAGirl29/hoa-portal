@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useAuth } from "@/hooks/useAuth";
+import { Header } from "@/components/layout/Header";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 function shadeColor(hex: string, pct: number): string {
@@ -71,7 +72,7 @@ function HeaderPreview({
             <div className="text-sm font-bold" style={{ color: accentDark }}>
               {name || "Your HOA Name"}
             </div>
-            <div className="text-[10px] text-gray-400 uppercase tracking-widest">
+            <div className="text-[10px] text-gray-600 uppercase tracking-widest">
               {location} · F.S. 720.303
             </div>
           </div>
@@ -187,7 +188,7 @@ function Section({
       <div className="px-6 py-4 border-b border-gray-50">
         <h2 className="text-sm font-bold text-gray-900 m-0">{title}</h2>
         {description && (
-          <p className="text-xs text-gray-400 mt-0.5 m-0">{description}</p>
+          <p className="text-xs text-gray-600 mt-0.5 m-0">{description}</p>
         )}
       </div>
       <div className="px-6 py-5">{children}</div>
@@ -293,7 +294,7 @@ export default function HOASettingsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-gray-300 text-center">
+        <div className="text-gray-500 text-center">
           <div className="text-3xl mb-2 animate-pulse">⚙️</div>
           <div className="text-sm">Loading settings…</div>
         </div>
@@ -304,13 +305,14 @@ export default function HOASettingsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Page header */}
-      <div className="bg-white border-b border-gray-100 px-8 py-6">
+      <Header />
+      <div className="bg-white border-b border-gray-100 px-4 sm:px-8 py-6">
         <div className="max-w-3xl mx-auto flex items-center justify-between flex-wrap gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight m-0">
               ⚙️ HOA Settings
             </h1>
-            <p className="text-sm text-gray-400 mt-1 m-0">
+            <p className="text-sm text-gray-600 mt-1 m-0">
               Update your community's branding, contact information, and header
               appearance.
             </p>
@@ -320,7 +322,7 @@ export default function HOASettingsPage() {
 
       <form
         onSubmit={handleSave}
-        className="max-w-3xl mx-auto px-8 py-6 space-y-6"
+        className="max-w-3xl mx-auto px-4 sm:px-8 py-6 space-y-6"
       >
         {/* Live preview */}
         <Section
@@ -343,7 +345,7 @@ export default function HOASettingsPage() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+              <label className="block text-sm font-medium text-gray-800 mb-1.5">
                 Community Name *
               </label>
               <input
@@ -356,9 +358,9 @@ export default function HOASettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+              <label className="block text-sm font-medium text-gray-800 mb-1.5">
                 Logo URL
-                <span className="normal-case font-normal text-gray-400 ml-1">
+                <span className="normal-case font-normal text-gray-600 ml-1">
                   (paste a direct image link, or leave blank for auto-monogram)
                 </span>
               </label>
@@ -381,7 +383,7 @@ export default function HOASettingsPage() {
                   />
                 )}
               </div>
-              <p className="text-xs text-gray-400 mt-1.5">
+              <p className="text-xs text-gray-600 mt-1.5">
                 💡 Use a square image (at least 88×88px) for best results.
                 Supports JPG, PNG, WebP, SVG.
               </p>
@@ -451,7 +453,7 @@ export default function HOASettingsPage() {
               },
             ].map(({ label, field, span, placeholder }) => (
               <div key={field} className={`col-span-${span}`}>
-                <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                <label className="block text-sm font-medium text-gray-800 mb-1.5">
                   {label}
                 </label>
                 <input
@@ -481,7 +483,7 @@ export default function HOASettingsPage() {
 
         {/* Save bar */}
         <div className="sticky bottom-4 bg-white border border-gray-200 rounded-xl px-5 py-4 shadow-lg flex items-center justify-between gap-4">
-          <p className="text-xs text-gray-400 m-0">
+          <p className="text-xs text-gray-600 m-0">
             {saved
               ? "✅ Settings saved — header will update on next login or page refresh."
               : "Changes are applied immediately after saving."}

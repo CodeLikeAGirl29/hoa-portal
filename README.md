@@ -94,55 +94,102 @@ Before you begin, ensure you have the following installed on your system:
 
 ### Installation
 
-Follow these steps to set up the project locally:
-
-1.  **Clone the Repository**:
+1.  **Clone the repository and install dependencies**
 
     ```bash
-    git clone https://github.com/username/hoa-portal.git
+    git clone https://github.com/CodeLikeAGirl29/hoa-portal.git
     cd hoa-portal
-    ```
-
-2.  **Install Dependencies**:
-
-    ```bash
     npm install
-    # or yarn install
-    # or pnpm install
     ```
 
-3.  **Database Setup**:
-    Ensure your PostgreSQL database is running.
+2.  **Configure the environment** — copy `.env.example` to `.env` and fill in
+    `DATABASE_URL`, `NEXTAUTH_SECRET` (`openssl rand -base64 32`) and
+    `NEXTAUTH_URL`.
 
-4.  **Apply Prisma Migrations**:
-    This will create the necessary tables in your database.
+3.  **Set up the database** — creates every table, then adds the demo
+    communities, accounts, documents and announcements:
 
     ```bash
-    npx prisma migrate dev --name init
+    npm run db:setup
     ```
 
-    If you have existing data, consider `npx prisma migrate deploy` in production environments.
+4.  **Start the development server**
 
-5.  **Start the Development Server**:
     ```bash
     npm run dev
     ```
-    The application will now be accessible at `http://localhost:3000`.
 
-### Environment Configuration
+    The application is now at `http://localhost:3000`. Use **View Demo** on
+    the login page to sign in as any demo account.
 
-The project requires specific environment variables to function correctly. Create a `.env` file in the root directory of the project based on the `.env.example` (if provided, otherwise create manually) and populate it with your specific values.
+### Database commands
 
-```env
-# Database
-DATABASE_URL="postgresql://user:password@localhost:5432/hoa-portal?schema=public"
+| Command              | What it does                                                        |
+| :------------------- | :------------------------------------------------------------------ |
+| `npm run db:setup`   | Apply all migrations, then seed. Use this on a new database.        |
+| `npm run db:deploy`  | Apply pending migrations only (safe for production).                |
+| `npm run db:seed`    | Add any missing demo data. Never overwrites or deletes anything.    |
+| `npm run db:migrate` | Create a new migration after editing `prisma/schema.prisma`.        |
+| `npm run db:status`  | Show which migrations the database has and hasn't applied.          |
 
-# NextAuth.js Configuration
-NEXTAUTH_SECRET="YOUR_SECURE_RANDOM_STRING_FOR_NEXTAUTH_AUTHENTICATION"
-NEXTAUTH_URL="http://localhost:3000" # Or your production URL
+**After every change to `prisma/schema.prisma`, run `npm run db:migrate` and
+commit the new folder under `prisma/migrations/`.** A model that exists in the
+schema but in no migration produces `relation "public.<Model>" does not exist`
+on any database built from the migrations.
+
+### Deploying to Vercel
+
+The `vercel-build` script runs `prisma migrate deploy` before `next build`, so
+every deploy brings the production database up to date automatically. Set
+`SEED_DEMO_DATA=true` in the project's environment variables if deploys should
+also add missing demo data.
+
+### File uploads
+
+Admins can attach a PDF, Word, Excel, PNG or JPEG file (up to 4 MB) to any
+document. Files are stored in the database (`DocumentFile` table), so there is
+no separate storage service to set up.
+
+- The 4 MB limit exists because Vercel rejects larger request bodies. To
+  accept bigger files, move storage to an object store such as Vercel Blob.
+- **Files are shared exactly as uploaded.** Automatic redaction only applies
+  to a document's typed text, never to the contents of an attached file.
+
+### Email, password resets and invitations
+
+Set `RESEND_API_KEY` (and `FROM_EMAIL`, an address on a domain verified in
+Resend) to turn on email. With it:
+
+- **Forgot password** on the sign-in page emails a one-time link (valid 1 hour).
+- **Invite member** on the Members page emails a link to choose a password
+  (valid 7 days). **Send link** re-sends one to an existing member.
+
+Without `RESEND_API_KEY`, invitations still work: the Members page shows the
+link so the admin can send it themselves. Forgot-password tells the person to
+ask their administrator. `NEXTAUTH_URL` must be the site's real address, since
+it is used to build these links.
+
+### Troubleshooting database errors
+
+Open **`/api/health`** on the running site. It reports one of:
+
+| Response                                   | Meaning                         | Fix                                   |
+| :----------------------------------------- | :------------------------------ | :------------------------------------ |
+| `"database": "down"`                       | Can't connect                   | Check `DATABASE_URL`; is the DB up?   |
+| `"schema": "out-of-date"` + `missingTables` | Migrations haven't been applied | `npm run db:deploy`                   |
+| `"seeded": false`                          | Tables exist but are empty      | `npm run db:seed`                     |
+| `"ok": true, "seeded": true`               | Database is healthy             | —                                     |
+
+If `prisma migrate deploy` fails with **P3005** ("the database schema is not
+empty"), the database was created without migration history (for example with
+`prisma db push`). Tell Prisma the first two migrations are already in place,
+then deploy the rest:
+
+```bash
+npx prisma migrate resolve --applied 20260608123903_init
+npx prisma migrate resolve --applied 20260608182416_add_hoa_branding
+npm run db:deploy
 ```
-
-**Note**: Replace `YOUR_SECURE_RANDOM_STRING_FOR_NEXTAUTH_AUTHENTICATION` with a strong, randomly generated string. You can generate one using `openssl rand -base64 32`.
 
 ---
 

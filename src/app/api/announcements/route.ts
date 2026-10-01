@@ -1,62 +1,76 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  ApiError,
+  getSessionUser,
+  handle,
+  readJson,
+  requireAdmin,
+  resolveHoaId,
+} from "@/lib/api";
 
-// GET /api/announcements — list active announcements for current HOA
-export async function GET(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
-
-  if (!user || !user.hoaId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+function parseExpiry(value: unknown): Date | null {
+  if (value === null || value === undefined || value === "") return null;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) {
+    throw new ApiError(400, "Expiry date is not a valid date.");
   }
+  return date;
+}
 
-  const now = new Date();
+// GET /api/announcements — active announcements for the viewer's HOA.
+// Visitors and accounts with no HOA simply have none, so this returns an
+// empty list rather than an error the banner would have to swallow.
+export const GET = handle("GET /api/announcements", async (req: Request) => {
+  const user = await getSessionUser();
+  const { searchParams } = new URL(req.url);
+  const hoaId = user ? resolveHoaId(user, searchParams.get("hoaId")) : null;
+
+  if (!hoaId) return NextResponse.json([]);
 
   const announcements = await prisma.announcement.findMany({
     where: {
-      hoaId: user.hoaId,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+      hoaId,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
     },
     orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
-    include: {
-      author: { select: { name: true, email: true } },
-    },
+    include: { author: { select: { name: true, email: true } } },
   });
 
   return NextResponse.json(announcements);
-}
+});
 
 // POST /api/announcements — create an announcement (admin only)
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  const user = session?.user as any;
+export const POST = handle("POST /api/announcements", async (req: Request) => {
+  const user = await requireAdmin();
+  const { title, body, pinned, expiresAt, hoaId } = await readJson(req);
 
-  if (!user || !["admin", "superadmin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const targetHoaId = resolveHoaId(user, hoaId);
+  if (!targetHoaId) {
+    throw new ApiError(
+      400,
+      "Your account isn't assigned to a community, so there is nowhere to post this."
+    );
   }
 
-  const { title, body, pinned, expiresAt } = await req.json();
-
-  if (!title || !body) {
-    return NextResponse.json(
-      { error: "Title and body are required." },
-      { status: 400 }
-    );
+  if (typeof title !== "string" || typeof body !== "string") {
+    throw new ApiError(400, "Title and body are required.");
+  }
+  if (!title.trim() || !body.trim()) {
+    throw new ApiError(400, "Title and body are required.");
   }
 
   const announcement = await prisma.announcement.create({
     data: {
-      hoaId: user.hoaId,
+      hoaId: targetHoaId,
       authorId: user.id,
       title: title.trim(),
       body: body.trim(),
-      pinned: pinned ?? false,
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      pinned: Boolean(pinned),
+      expiresAt: parseExpiry(expiresAt),
     },
     include: { author: { select: { name: true, email: true } } },
   });
 
   return NextResponse.json(announcement, { status: 201 });
-}
+});
